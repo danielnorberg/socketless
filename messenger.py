@@ -11,8 +11,9 @@ from channel import Channel, DisconnectedException
 from utils.testcase import TestCase
 
 class Messenger(object):
-	def __init__(self, listener):
+	def __init__(self, listener, reconnect_max_interval=15):
 		super(Messenger, self).__init__()
+		self.reconnect_max_interval = reconnect_max_interval
 		self.listener = listener
 		self.socket = None
 		self.channel = None
@@ -26,13 +27,17 @@ class Messenger(object):
 		self.connect()
 
 	def _connect(self):
+		min_interval = 0.5
 		while True:
+			interval = min_interval
 			self.disconnected.wait()
 			while not self.socket:
 				if self.connect():
+					interval = min_interval
 					self.disconnected.clear()
 				else:
-					gevent.sleep(0.1)
+					gevent.sleep(interval)
+					interval = min(interval * 2, self.reconnect_max_interval)
 
 	def connect(self):
 		try:
@@ -76,9 +81,12 @@ class Messenger(object):
 
 	def _send(self):
 		while True:
-			message = self.send_queue.get()
 			try:
-				self.channel.send(message)
+				while True:
+					message = self.send_queue.get()
+					self.channel.send(message)
+					if self.send_queue.empty():
+						break
 				self.channel.flush()
 			except DisconnectedException, e:
 				self._handle_disconnection(e)
