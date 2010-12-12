@@ -29,7 +29,9 @@ class RopeBuffer(object):
 		assert data
 		return data
 
-	def read(self, length):
+	def read(self, length=-1):
+		if length == -1:
+			length = self.len
 		assert length <= self.len
 		if length < len(self.ropes[0]) - self.i:
 			data = self.ropes[0][self.i:self.i+length]
@@ -41,15 +43,23 @@ class RopeBuffer(object):
 
 
 def main():
-	buffer = RopeBuffer()
-	buffer.add('he')
-	buffer.add('llo')
-	buffer.add(' ')
-	buffer.add('world')
+	b = RopeBuffer()
+	b.add('he')
+	b.add('llo')
+	b.add(' ')
+	b.add('world')
 
-	assert buffer.read(5) == 'hello'
-	assert buffer.read(6) == ' world'
-	assert buffer.len == 0
+	assert b.read(5) == 'hello'
+	assert b.read(6) == ' world'
+	assert b.len == 0
+
+	# b = RopeBuffer()
+	b.add('he')
+	b.add('llo')
+	b.add(' ')
+	b.add('world')
+	assert b.read() == 'hello world'
+	assert b.len == 0
 
 if __name__ == '__main__':
 	main()

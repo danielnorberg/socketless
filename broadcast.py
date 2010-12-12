@@ -1,4 +1,4 @@
-from gevent.queue import Queue
+from syncless.util import Queue
 
 class Broadcast(object):
 	"""docstring for Broadcast"""
@@ -11,7 +11,7 @@ class Broadcast(object):
 		"""docstring for send"""
 		for token, messenger in self.messengers:
 			messenger.send(message, token, self.q)
-		replies = [self.q.get() for messenger in self.messengers]
+		replies = [self.q.popleft() for messenger in self.messengers]
 		return replies
 
 	# def send_batch(self, messages):

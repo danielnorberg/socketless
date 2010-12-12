@@ -1,17 +1,14 @@
-import gevent
-import gevent.monkey
-gevent.monkey.patch_all()
+from syncless.util import Queue
+from syncless import coio
 
 import subprocess
 import argparse
-
-from gevent.server import StreamServer
-from gevent.queue import Queue
 
 import sys
 import paths
 sys.path.append(paths.home)
 
+from streamserver import StreamServer
 from channel import Channel, DisconnectedException
 
 def launch_echoserver(port):
@@ -22,27 +19,53 @@ def launch_echoserver(port):
 class EchoServer(StreamServer):
 	"""docstring for Handler"""
 	def __init__(self, listener):
-		super(EchoServer, self).__init__(listener, self.handle_connection)
-		self.q = Queue()
+		super(EchoServer, self).__init__(listener)
 		print 'started'
 
-	def receiver(self, c):
+	def sender(self, q, c, f):
 		i = 0
-		while True:
-			i += 1
-			message = c.recv()
-			if not message:
-				c.close()
-				break
-			c.send(message)
-			if i % 1000 == 0:
-				gevent.sleep()
+		try:
+			while True:
+				i += 1
+				# print 's: ', i, 1
+				message = q.popleft()
+				# print 's: ', i, 2
+				if not message:
+					break
+				c.send(message)
+				if len(q) == 0:
+					c.flush()
+		except DisconnectedException:
+			pass
+		finally:
+			f.append(True)
+
+	def receiver(self, q, c, f):
+		i = 0
+		try:
+			while True:
+				i += 1
+				message = c.recv()
+				# print 'r: ', i
+				q.append(message)
+				if not message:
+					break
+		except DisconnectedException:
+			print 'Client disconnected'
+		finally:
+			f.append(True)
 
 	def handle_connection(self, s, address):
 		print 'New connection from %s:%s' % address
 		c = Channel(s)
+		q = Queue()
+		f = Queue()
+		coio.stackless.tasklet(self.sender)(q, c, f)
+		coio.stackless.tasklet(self.receiver)(q, c, f)
+		f.popleft()
+		f.popleft()
 		try:
-			self.receiver(c)
+			c.close()
 		except DisconnectedException:
 			print 'Client disconnected'
 
@@ -57,9 +80,12 @@ def main():
 	else:
 		processes = [launch_echoserver(port)	for port in xrange(args.port_range_start, args.port_range_end + 1)]
 		while True:
-			raw_input()
+			print 'q to quit'
+			if raw_input() == 'q':
+				break
 		for process in processes:
 			process.kill()
+		sys.exit(0)
 
 
 if __name__ == '__main__':
