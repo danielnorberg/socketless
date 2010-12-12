@@ -1,3 +1,5 @@
+import pyximport; pyximport.install()
+
 import syncless, syncless.patch
 syncless.patch.patch_socket()
 
