@@ -1,5 +1,3 @@
-import pyximport; pyximport.install()
-
 from syncless.util import Queue
 from syncless import coio
 

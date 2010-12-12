@@ -1,3 +1,5 @@
+# from utils import ropebuffer
+# RopeBuffer = ropebuffer.RopeBuffer
 from utils.ropebuffer import RopeBuffer
 import struct
 

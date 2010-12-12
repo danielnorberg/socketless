@@ -25,7 +25,7 @@ def	pure_run(N):
 
 
 def main():
-	N = 1000000
+	N = 100000
 	t = timeit.Timer("test_ropebuffer_loop.run(%d)" % (N),
 	                       "import test_ropebuffer_loop")
 	print "Cython loop", t.timeit(1), "sec"

@@ -9,17 +9,16 @@ def	run(N):
 		b.add('llo')
 		b.add(' ')
 		b.add('world')
-		b.read(b.len)
-		#
 		# assert b.read(5) == 'hello'
 		# assert b.read(6) == ' world'
 		# assert b.len == 0
+		b.read(b.len)
 
 		# b = RopeBuffer()
 		b.add('he')
 		b.add('llo')
 		b.add(' ')
 		b.add('world')
-		b.read(b.len)
-		# assert b.read() == 'hello world'
+		# assert b.read(b.len) == 'hello world'
 		# assert b.len == 0
+		b.read(b.len)
