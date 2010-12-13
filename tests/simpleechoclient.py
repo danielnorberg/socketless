@@ -19,8 +19,8 @@ def main():
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	s.connect(('127.0.0.1', 5555))
 	c = Channel(s)
-	N = 2000
-	M = 1024 * 128
+	N = 200000
+	M = 16
 	message = '.' * M
 	byte_count = len(message) * N
 	f = Queue()

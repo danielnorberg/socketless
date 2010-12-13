@@ -1,7 +1,17 @@
+from utils.ropebuffer cimport RopeBuffer
 from utils.ropebuffer import RopeBuffer
 import struct
 
 from collections import deque
+
+import types
+
+cdef extern from "stdint.h":
+	ctypedef unsigned int uint32_t
+
+cdef extern from "arpa/inet.h":
+	cdef unsigned int htonl(uint32_t x)
+	cdef unsigned int ntohl(uint32_t x)
 
 class DisconnectedException(BaseException):
 	pass
@@ -18,10 +28,15 @@ cdef class Channel:
 		self.socket = socket
 		self.buffer = RopeBuffer()
 		self.send_buffer = deque()
+		self.pack = struct.pack
+		self.unpack = struct.unpack
+		self.header_spec = '!L'
 
-	cpdef send(self, message):
+	cdef send(self, message):
+		# cdef unsigned int message_length = htonl(len(message))
+		# cdef char header[5];
 		try:
-			self.send_buffer.append(struct.pack('!L', len(message)))
+			self.send_buffer.append(self.pack(self.header_spec, len(message)))
 			self.send_buffer.append(message)
 		except IOError:
 			raise DisconnectedException()
@@ -44,7 +59,7 @@ cdef class Channel:
 				self.flush()
 				data = read(self.socket)
 				self.buffer.add(data)
-			size = struct.unpack('!L', self.buffer.read(4))[0]
+			size = self.unpack(self.header_spec, self.buffer.read(4))[0]
 			if not size:
 				self.flush()
 				return None

@@ -1,8 +1,12 @@
+from utils.ropebuffer cimport RopeBuffer
 cdef class Channel:
 	cdef object socket
-	cdef object buffer
+	cdef RopeBuffer buffer
 	cdef object send_buffer
-	cpdef send(self, message)
+	cdef object unpack
+	cdef object pack
+	cdef object header_spec
+	cdef send(self, message)
 	cpdef flush(self)
 	cpdef recv(self)
 	cpdef close(self)
