@@ -5,8 +5,9 @@ import sys
 import paths
 sys.path.append(paths.home)
 
-from streamserver import StreamServer
 from channel import Channel, DisconnectedException
+from streamserver import StreamServer
+import echoserver_core
 
 class EchoServer(StreamServer):
 	"""docstring for Handler"""
@@ -14,25 +15,17 @@ class EchoServer(StreamServer):
 		super(EchoServer, self).__init__(listener)
 		print 'started'
 
-	def receiver(self, c):
-		while True:
-			message = c.recv()
-			if not message:
-				break
-			c.send(message)
-
 	def handle_connection(self, s, address):
 		print 'New connection from %s:%s' % address
 		try:
 			c = Channel(s)
-			self.receiver(c)
+			echoserver_core.receiver(c)
 			c.close()
 		except DisconnectedException:
 			print 'Client disconnected'
 
-
 def main():
-    server = EchoServer(('127.0.0.1', 5555))
+	EchoServer(('127.0.0.1', 5555))
 
 if __name__ == '__main__':
-    main()
+	main()

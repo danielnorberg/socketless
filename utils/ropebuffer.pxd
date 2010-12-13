@@ -5,3 +5,4 @@ cdef class RopeBuffer:
 	cpdef add(self, data)
 	cpdef _read(self, int length)
 	cpdef read(self, int length)
+	cpdef drain(self)

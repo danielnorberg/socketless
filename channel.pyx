@@ -1,5 +1,3 @@
-# from utils import ropebuffer
-# RopeBuffer = ropebuffer.RopeBuffer
 from utils.ropebuffer import RopeBuffer
 import struct
 
@@ -15,9 +13,6 @@ cdef read(s, b=1024):
 	return data
 
 cdef class Channel:
-	cdef object socket
-	cdef object buffer
-	cdef object send_buffer
 	def __init__(self, socket):
 		super(Channel, self).__init__()
 		self.socket = socket

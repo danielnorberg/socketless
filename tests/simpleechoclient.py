@@ -10,30 +10,25 @@ import sys
 import paths
 sys.path.append(paths.home)
 
-from channel import Channel, DisconnectedException
 from timeit import default_timer as timer
+
+from channel import Channel
+import echoclient_core
 
 def main():
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	s.connect(('127.0.0.1', 5555))
-
 	c = Channel(s)
-	message = 'Hello'
-	N = 1000000
+	N = 2000
+	M = 1024 * 128
+	message = '.' * M
+	byte_count = len(message) * N
+	f = Queue()
+	coio.stackless.tasklet(echoclient_core.sender)(c, message, N, f)
+	coio.stackless.tasklet(echoclient_core.receiver)(c, N, f)
 	start_time = timer()
-	byte_count = N * len(message)
-	l = 0
-	for i in xrange(N):
-		c.send(message)
-		l += 1
-		if l > 100:
-			for j in xrange(l):
-				c.recv()
-			l = 0
-	for j in xrange(l):
-		c.recv()
-	l = 0
-
+	f.pop()
+	f.pop()
 	end_time = timer()
 	diff_time = end_time - start_time
 	print 'Transmission time: %fs' % diff_time
