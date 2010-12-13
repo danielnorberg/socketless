@@ -27,9 +27,7 @@ class EchoServer(StreamServer):
 		try:
 			while True:
 				i += 1
-				# print 's: ', i, 1
 				message = q.popleft()
-				# print 's: ', i, 2
 				if not message:
 					break
 				c.send(message)
@@ -46,7 +44,6 @@ class EchoServer(StreamServer):
 			while True:
 				i += 1
 				message = c.recv()
-				# print 'r: ', i
 				q.append(message)
 				if not message:
 					break
