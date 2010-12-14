@@ -16,7 +16,7 @@ cdef extern from "arpa/inet.h":
 class DisconnectedException(BaseException):
 	pass
 
-cdef read(s, b=1024):
+cdef read(s, b=1024*16):
 	data = s.recv(b)
 	if not data:
 		raise DisconnectedException()
@@ -32,7 +32,7 @@ cdef class Channel:
 		self.unpack = struct.unpack
 		self.header_spec = '!L'
 
-	cdef send(self, message):
+	cpdef send(self, message):
 		# cdef unsigned int message_length = htonl(len(message))
 		# cdef char header[5];
 		try:
@@ -42,21 +42,56 @@ cdef class Channel:
 			raise DisconnectedException()
 
 	cpdef flush(self):
+		if self.flushing:
+			raise Exception('channel.flush() reentered!')
+		self.flushing = True
+		cdef object first_string
+		cdef unsigned int data_len, sent, next_len
+		cdef object strings, next_string
+		cdef unsigned int max_payload = 4096
 		try:
-			if self.send_buffer:
-				data = ''.join(self.send_buffer)
-				self.send_buffer = deque()
-				sent = 0
-				while sent < len(data):
-					sent += self.socket.send(data[sent:])
+			while self.send_buffer:
+				first_string = self.send_buffer.popleft()
+				strings = deque((first_string,))
+				data_len = len(first_string)
+				next_len = 0
+				next_string = None
+
+				# get more data strings from send buffer
+				while self.send_buffer:
+					next_string = self.send_buffer[0]
+					next_len = len(next_string)
+					if data_len + next_len > max_payload:
+						break
+					data_len += next_len
+					strings.append(next_string)
+					self.send_buffer.popleft()
+
+				# join strings, if necessary
+				if len(strings) == 1:
+					data = strings[0]
+				else:
+					data = ''.join(strings)
+
+				# first send
+				sent = self.socket.send(data)
+
+				# send remaining chunks
+				while sent < data_len:
+					if data_len - sent > max_payload:
+						sent += self.socket.send(buffer(data, sent, data_len - sent))
+					else:
+						sent += self.socket.send(data[sent:])
 		except IOError:
 			raise DisconnectedException()
+		finally:
+			self.flushing = False
 
 	cpdef recv(self):
 		cdef unsigned int size
 		try:
 			while self.buffer.len < 4:
-				self.flush()
+				# self.flush()
 				data = read(self.socket)
 				self.buffer.add(data)
 			size = self.unpack(self.header_spec, self.buffer.read(4))[0]
@@ -64,7 +99,7 @@ cdef class Channel:
 				self.flush()
 				return None
 			while self.buffer.len < size:
-				self.flush()
+				# self.flush()
 				self.buffer.add(read(self.socket))
 			message = self.buffer.read(size)
 			return message

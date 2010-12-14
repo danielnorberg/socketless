@@ -6,6 +6,7 @@ cdef class Channel:
 	cdef object unpack
 	cdef object pack
 	cdef object header_spec
+	cdef bint flushing
 	cpdef send(self, message)
 	cpdef flush(self)
 	cpdef recv(self)

@@ -46,22 +46,23 @@ class TestMessenger(TestCase):
 		from tests import echoserver
 		from timeit import default_timer as timer
 		token = id(self)
-		N = 100000
+		N = 1000000
 		q = Queue()
 		l = 0
 		port = 6001
 		host = ('localhost', port)
-		p = echoserver.launch_echoserver(port)
+		# p = echoserver.launch_echoserver(port)
 		bytecount = 0
 		try:
 			sent_messages = deque()
 			coio.sleep(1)
 			messenger = Messenger(host)
 			start_time = timer()
-			message_length = 1024
+			message_length = 1024*16
 			message_buffer = ''.join('%d' % (i % 10) for i in xrange(N+message_length*2))
+			i = 0
+			message = message_buffer[i:i+message_length]
 			for i in xrange(N):
-				message = message_buffer[i:i+message_length]
 				bytecount += len(message)
 				messenger.send(message, token, q)
 				sent_messages.append((message, token))
@@ -82,7 +83,8 @@ class TestMessenger(TestCase):
 			print '%.2f messages/s, %.2f MB/s' % (float(N*2) / diff_time, (float(bytecount*2) / 2**20) / diff_time)
 			messenger.close()
 		finally:
-			p.kill()
+			pass
+			# p.kill()
 
 
 if __name__ == '__main__':
