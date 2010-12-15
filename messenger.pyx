@@ -56,7 +56,7 @@ cdef class Messenger:
 
 	def _handle_disconnection(self, e):
 		"""docstring for handle_error"""
-		logging.error(e)
+		logging.warning(e)
 		self._teardown()
 		self.disconnected.append(True)
 

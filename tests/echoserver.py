@@ -63,8 +63,10 @@ class EchoServer(StreamServer):
 		f.popleft()
 		try:
 			c.close()
+			print 'Connection closed'
 		except DisconnectedException:
 			print 'Client disconnected'
+
 
 def main():
 	parser = argparse.ArgumentParser(description="Echo Server")
