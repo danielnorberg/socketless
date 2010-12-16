@@ -1,8 +1,7 @@
-import sys
 import paths
-sys.path.append(paths.home)
 
 from collections import deque
+from timeit import default_timer as timer
 
 from syncless import coio
 from syncless.util import Queue
@@ -10,20 +9,16 @@ from syncless.util import Queue
 from messenger import Messenger
 
 from utils.testcase import TestCase
-
-# import logging
-# from utils import debug
-# debug.configure_logging("MessegerUnitTest", logging.ERROR)
+from utils.channel_echoserver import launch_echoserver
 
 class TestMessenger(TestCase):
 	def testResilience(self):
-		from tests import echoserver
 		try:
 			token = id(self)
 			q = Queue()
 			port = 6000
 			host = ('localhost', port)
-			p = echoserver.launch_echoserver(port)
+			p = launch_echoserver(port)
 			coio.sleep(0.5)
 			messenger = Messenger(host, 0.1)
 			messenger.send('1', token, q)
@@ -34,7 +29,7 @@ class TestMessenger(TestCase):
 			messenger.send('3', token, q)
 			assert q.popleft() == (None, token)
 			assert q.popleft() == (None, token)
-			p = echoserver.launch_echoserver(port)
+			p = launch_echoserver(port)
 			coio.sleep(0.5)
 			messenger.send('4', token, q)
 			assert q.popleft() == ('4', token)
@@ -44,8 +39,6 @@ class TestMessenger(TestCase):
 			p.kill()
 
 	def testPerformance(self):
-		from tests import echoserver
-		from timeit import default_timer as timer
 		token = id(self)
 		message_length = 1024
 		N = 10000
@@ -54,7 +47,7 @@ class TestMessenger(TestCase):
 		l = 0
 		port = 6001
 		host = ('localhost', port)
-		p = echoserver.launch_echoserver(port)
+		p = launch_echoserver(port)
 		bytecount = 0
 		try:
 			sent_messages = deque()

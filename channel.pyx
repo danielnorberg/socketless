@@ -1,5 +1,5 @@
-from utils.ropebuffer cimport RopeBuffer
-from utils.ropebuffer import RopeBuffer
+from ropebuffer cimport RopeBuffer
+from ropebuffer import RopeBuffer
 import struct
 
 from collections import deque

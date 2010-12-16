@@ -6,9 +6,7 @@ from syncless import coio
 
 import socket
 
-import sys
 import paths
-sys.path.append(paths.home)
 
 from timeit import default_timer as timer
 

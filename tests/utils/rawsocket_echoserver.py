@@ -1,9 +1,7 @@
 from syncless.util import Queue
 from syncless import coio
 
-import sys
 import paths
-sys.path.append(paths.home)
 
 from channel import Channel, DisconnectedException
 from streamserver import StreamServer

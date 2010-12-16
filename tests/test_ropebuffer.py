@@ -1,8 +1,10 @@
 import timeit
 import unittest
-from testcase import TestCase
+from utils.testcase import TestCase
 
-from utils.ropebuffer import RopeBuffer
+import paths
+
+from ropebuffer import RopeBuffer
 
 class RopeBufferTest(TestCase):
 	def testBasic(self):

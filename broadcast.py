@@ -13,12 +13,3 @@ class Broadcast(object):
 			messenger.send(message, token, self.q)
 		replies = [self.q.popleft() for messenger in self.messengers]
 		return replies
-
-	# def send_batch(self, messages):
-	# 	"""docstring for send_batch"""
-	# 	for message in messages:
-	# 		for messenger in self.messengers:
-	# 			messenger.send(message, self.q)
-	# 	for i in xrange(len(self.messengers) * len(messages)):
-	# 		yield self.q.get()
-

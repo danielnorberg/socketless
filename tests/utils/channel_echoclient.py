@@ -4,9 +4,7 @@ from syncless.util import Queue
 import argparse
 import time
 
-import sys
 import paths
-sys.path.append(paths.home)
 
 from messenger import Messenger
 from broadcast import Broadcast

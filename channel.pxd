@@ -1,4 +1,4 @@
-from utils.ropebuffer cimport RopeBuffer
+from ropebuffer cimport RopeBuffer
 cdef class Channel:
 	cdef object socket
 	cdef RopeBuffer buffer
