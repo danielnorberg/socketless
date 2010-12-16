@@ -33,8 +33,6 @@ cdef class Channel:
 		self.header_spec = '!L'
 
 	cpdef send(self, message):
-		# cdef unsigned int message_length = htonl(len(message))
-		# cdef char header[5];
 		try:
 			self.send_buffer.append(self.pack(self.header_spec, len(message)))
 			self.send_buffer.append(message)
@@ -73,15 +71,8 @@ cdef class Channel:
 				else:
 					data = ''.join(strings)
 
-				# first send
-				sent = self.socket.send(data)
+				self.socket.sendall(data)
 
-				# send remaining chunks
-				while sent < data_len:
-					if data_len - sent > max_payload:
-						sent += self.socket.send(buffer(data, sent, data_len - sent))
-					else:
-						sent += self.socket.send(data[sent:])
 		except IOError:
 			raise DisconnectedException()
 		finally:
@@ -91,15 +82,11 @@ cdef class Channel:
 		cdef unsigned int size
 		try:
 			while self.buffer.len < 4:
-				# self.flush()
-				data = read(self.socket)
-				self.buffer.add(data)
+				self.buffer.add(read(self.socket))
 			size = self.unpack(self.header_spec, self.buffer.read(4))[0]
 			if not size:
-				self.flush()
 				return None
 			while self.buffer.len < size:
-				# self.flush()
 				self.buffer.add(read(self.socket))
 			message = self.buffer.read(size)
 			return message
@@ -109,4 +96,3 @@ cdef class Channel:
 	cpdef close(self):
 		self.send('')
 		self.flush()
-

@@ -47,9 +47,9 @@ class TestMessenger(TestCase):
 		from tests import echoserver
 		from timeit import default_timer as timer
 		token = id(self)
-		message_length = 1024 * 1024
-		N = 1000
-		batch_size = 10
+		message_length = 1024
+		N = 10000
+		batch_size = 100
 		q = Queue()
 		l = 0
 		port = 6001
@@ -83,8 +83,9 @@ class TestMessenger(TestCase):
 							assert False
 			end_time = timer()
 			elapsed_time = end_time - start_time
+			print 'Transmitted %d messages with a size of %d bytes' % (N, message_length)
 			print 'Transmission time (with validation): %fs' % elapsed_time
-			print '%.2f messages/s, %.2f MB/s' % (float(N*2) / elapsed_time, (float(bytecount*2) / 2**20) / elapsed_time)
+			print '%.2f requests+replies/s, %.2f MB/s' % (float(N*2) / elapsed_time, (float(bytecount*2) / 2**20) / elapsed_time)
 			messenger.close()
 		finally:
 			p.kill()
