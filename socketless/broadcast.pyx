@@ -1,6 +1,8 @@
+from messenger cimport Messenger
+
 from syncless.util import Queue
 
-class Broadcast(object):
+cdef class Broadcast:
 	"""docstring for Broadcast"""
 	def __init__(self, messengers):
 		super(Broadcast, self).__init__()
