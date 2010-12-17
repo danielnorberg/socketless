@@ -6,7 +6,7 @@ Home-page: https://github.com/danielnorberg/socketless
 Author: Daniel Norberg
 Author-email: daniel.norberg@gmail.com
 License: Apache License, Version 2.0
-Download-URL:
+Download-URL: https://github.com/danielnorberg/socketless/zipball/socketless-0.1.zip
 Description: Socketless is a an asynchronous TCP messaging library for
 	implementing communication using messages and broadcast req/rep
 	instead of raw sockets. Socketless relies on the library syncless
