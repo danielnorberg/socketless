@@ -6,6 +6,7 @@ extensions = [Extension('socketless.%s' % module, ['socketless/%s.c' % module]) 
 
 setup(
 	name='socketless',
+	version='0.1',
 	packages=['socketless'],
     ext_modules = extensions,
 )
