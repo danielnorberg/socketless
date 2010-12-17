@@ -1,5 +1,5 @@
 import os, sys
-home = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+home = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(home)
 
 def path(_path):
