@@ -1,7 +1,7 @@
 from setuptools import setup
 from setuptools.extension import Extension
 
-modules = ['broadcast', 'channel', 'messenger', 'ropebuffer', 'streamserver']
+modules = ['ropebuffer', 'broadcast', 'channel', 'messenger', 'streamserver']
 
 extensions = [Extension(
 	name ='socketless.%s' % module,

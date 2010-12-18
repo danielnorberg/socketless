@@ -10,7 +10,7 @@ from streamserver import StreamServer
 from channel import Channel, DisconnectedException
 
 def launch_echoserver(port):
-	path = paths.path('tests/utils/channel_echoserver.py')
+	path = paths.path('test/utils/channel_echoserver.py')
 	cmd = 'python %s %d %d' % (path, port, port)
 	return subprocess.Popen(cmd, shell=True)
 
