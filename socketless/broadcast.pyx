@@ -9,7 +9,7 @@ cdef class Broadcast:
 		self.messengers = messengers
 		self.q = Queue()
 
-	def send(self, message):
+	cpdef send(self, message):
 		"""docstring for send"""
 		for token, messenger in self.messengers:
 			messenger.send(message, token, self.q)
