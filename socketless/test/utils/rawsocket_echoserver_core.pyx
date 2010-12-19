@@ -1,6 +1,5 @@
-from streamserver import StreamServer
-from channel cimport Channel
-from channel import Channel, DisconnectedException
+from socketless.channel cimport Channel
+from socketless.channel import Channel, DisconnectedException
 
 cpdef receiver(Channel c):
 	cdef object message

@@ -10,7 +10,7 @@ import paths
 
 from timeit import default_timer as timer
 
-from channel import Channel
+from socketless.channel import Channel
 import echoclient_core
 
 def main():

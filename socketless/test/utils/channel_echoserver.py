@@ -6,8 +6,8 @@ import argparse
 
 import paths
 
-from streamserver import StreamServer
-from channel import Channel, DisconnectedException
+from socketless.streamserver import StreamServer
+from socketless.channel import Channel, DisconnectedException
 
 def launch_echoserver(port):
 	path = paths.path('test/utils/channel_echoserver.py')

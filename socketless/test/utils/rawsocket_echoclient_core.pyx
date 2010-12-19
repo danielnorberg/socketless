@@ -1,5 +1,5 @@
-from channel cimport Channel
-from channel import Channel
+from socketless.channel cimport Channel
+from socketless.channel import Channel
 
 from syncless import coio
 

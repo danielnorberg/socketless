@@ -30,7 +30,7 @@ def makeExtension(extName):
     return Extension(
         extName,
         [extPath],
-        include_dirs = ['socketless'],   # adding the '.' to include_dirs is CRUCIAL!!
+        include_dirs = ['.'],   # adding the '.' to include_dirs is CRUCIAL!!
         extra_compile_args = ["-O3", "-Wall"],
         extra_link_args = ['-g'],
         )

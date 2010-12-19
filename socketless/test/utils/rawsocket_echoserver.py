@@ -3,8 +3,8 @@ from syncless import coio
 
 import paths
 
-from channel import Channel, DisconnectedException
-from streamserver import StreamServer
+from socketless.channel import Channel, DisconnectedException
+from socketless.streamserver import StreamServer
 import echoserver_core
 
 class EchoServer(StreamServer):

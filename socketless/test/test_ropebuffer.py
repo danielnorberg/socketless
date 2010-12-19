@@ -4,7 +4,7 @@ from utils.testcase import TestCase
 
 import paths
 
-from ropebuffer import RopeBuffer
+from socketless.ropebuffer import RopeBuffer
 
 class RopeBufferTest(TestCase):
 	def testBasic(self):

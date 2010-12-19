@@ -6,8 +6,8 @@ import time
 
 import paths
 
-from messenger import Messenger
-from broadcast import Broadcast
+from socketless.messenger import Messenger
+from socketless.broadcast import Broadcast
 
 def invoke(broadcast, count, size, finished):
 	message = '.' * size
