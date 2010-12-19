@@ -1,5 +1,3 @@
-import syncless, syncless.patch
-syncless.patch.patch_socket()
 from syncless.best_stackless import stackless
 from syncless import coio
 from syncless.util import Queue
@@ -40,7 +38,7 @@ cdef class Messenger:
 
 	cpdef connect(self):
 		try:
-			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			s = coio.nbsocket(socket.AF_INET, socket.SOCK_STREAM)
 			s.connect(self.listener)
 			self.socket = s
 			self.channel = Channel(self.socket)

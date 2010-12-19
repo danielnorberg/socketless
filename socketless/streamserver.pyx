@@ -1,6 +1,3 @@
-import syncless.patch
-syncless.patch.patch_socket()
-
 from syncless import coio
 
 import socket
@@ -9,7 +6,7 @@ class StreamServer(object):
 	"""docstring for StreamServer"""
 	def __init__(self, listener, listen_backlog=1024):
 		super(StreamServer, self).__init__()
-		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		s = coio.nbsocket(socket.AF_INET, socket.SOCK_STREAM)
 		s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		s.bind(listener)
 		s.listen(listen_backlog)
