@@ -8,3 +8,4 @@ cpdef receiver(Channel c):
 		if not message:
 			break
 		c.send(message)
+		c.flush()

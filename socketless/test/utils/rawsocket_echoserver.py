@@ -5,7 +5,7 @@ import paths
 
 from socketless.channel import Channel, DisconnectedException
 from socketless.streamserver import StreamServer
-import echoserver_core
+import rawsocket_echoserver_core
 
 class EchoServer(StreamServer):
 	"""docstring for Handler"""
@@ -17,7 +17,7 @@ class EchoServer(StreamServer):
 		print 'New connection from %s:%s' % address
 		try:
 			c = Channel(s)
-			echoserver_core.receiver(c)
+			rawsocket_echoserver_core.receiver(c)
 			c.close()
 		except DisconnectedException:
 			print 'Client disconnected'

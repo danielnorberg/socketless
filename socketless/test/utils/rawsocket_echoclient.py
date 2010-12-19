@@ -1,6 +1,3 @@
-import syncless, syncless.patch
-syncless.patch.patch_socket()
-
 from syncless.util import Queue
 from syncless import coio
 
@@ -11,10 +8,10 @@ import paths
 from timeit import default_timer as timer
 
 from socketless.channel import Channel
-import echoclient_core
+import rawsocket_echoclient_core
 
 def main():
-	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	s = coio.nbsocket(socket.AF_INET, socket.SOCK_STREAM)
 	s.connect(('127.0.0.1', 5555))
 	c = Channel(s)
 	N = 200000
@@ -22,8 +19,8 @@ def main():
 	message = '.' * M
 	byte_count = len(message) * N
 	f = Queue()
-	coio.stackless.tasklet(echoclient_core.sender)(c, message, N, f)
-	coio.stackless.tasklet(echoclient_core.receiver)(c, N, f)
+	coio.stackless.tasklet(rawsocket_echoclient_core.sender)(c, message, N, f)
+	coio.stackless.tasklet(rawsocket_echoclient_core.receiver)(c, N, f)
 	start_time = timer()
 	f.pop()
 	f.pop()
