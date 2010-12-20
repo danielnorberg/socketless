@@ -1,10 +1,9 @@
-from ropebuffer cimport RopeBuffer
-from ropebuffer import RopeBuffer
+import socket
+from collections import deque
 import struct
 
-from collections import deque
-
-import types
+from ropebuffer cimport RopeBuffer
+from ropebuffer import RopeBuffer
 
 cdef extern from "stdint.h":
 	ctypedef unsigned int uint32_t
@@ -91,6 +90,8 @@ cdef class Channel:
 			message = self.buffer.read(size)
 			return message
 		except IOError:
+			raise DisconnectedException()
+		except socket.error:
 			raise DisconnectedException()
 
 	cpdef close(self):

@@ -2,6 +2,7 @@ import paths
 
 from collections import deque
 from timeit import default_timer as timer
+import os, signal
 
 from syncless import coio
 from syncless.util import Queue
@@ -12,31 +13,31 @@ from utils.testcase import TestCase
 from utils.channel_echoserver import launch_echoserver
 
 class TestMessenger(TestCase):
-	# def testResilience(self):
-	# 	try:
-	# 		token = id(self)
-	# 		q = Queue()
-	# 		port = 6000
-	# 		host = ('localhost', port)
-	# 		p = launch_echoserver(port)
-	# 		coio.sleep(0.5)
-	# 		messenger = Messenger(host, 0.1)
-	# 		messenger.send('1', token, q)
-	# 		assert q.popleft() == ('1', token)
-	# 		p.kill()
-	# 		messenger.send('2', token, q)
-	# 		coio.sleep(0.5)
-	# 		messenger.send('3', token, q)
-	# 		assert q.popleft() == (None, token)
-	# 		assert q.popleft() == (None, token)
-	# 		p = launch_echoserver(port)
-	# 		coio.sleep(0.5)
-	# 		messenger.send('4', token, q)
-	# 		assert q.popleft() == ('4', token)
-	# 		messenger.close()
-	# 		coio.sleep(0.5)
-	# 	finally:
-	# 		p.kill()
+	def testResilience(self):
+		try:
+			token = id(self)
+			q = Queue()
+			port = 6000
+			host = ('localhost', port)
+			p = launch_echoserver(port)
+			coio.sleep(0.5)
+			messenger = Messenger(host, 0.1)
+			messenger.send('1', token, q)
+			assert q.popleft() == ('1', token)
+			os.kill(p.pid, signal.SIGKILL)
+			messenger.send('2', token, q)
+			coio.sleep(0.5)
+			messenger.send('3', token, q)
+			assert q.popleft() == (None, token)
+			assert q.popleft() == (None, token)
+			p = launch_echoserver(port)
+			coio.sleep(0.5)
+			messenger.send('4', token, q)
+			assert q.popleft() == ('4', token)
+			messenger.close()
+			coio.sleep(0.5)
+		finally:
+			os.kill(p.pid, signal.SIGKILL)
 
 	def testPerformance(self):
 		token = id(self)
@@ -81,8 +82,7 @@ class TestMessenger(TestCase):
 			print '%.2f requests+replies/s, %.2f MB/s' % (float(N*2) / elapsed_time, (float(bytecount*2) / 2**20) / elapsed_time)
 			messenger.close()
 		finally:
-			# pass
-			p.kill()
+			os.kill(p.pid, signal.SIGKILL)
 
 if __name__ == '__main__':
 	import unittest
