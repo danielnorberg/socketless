@@ -37,7 +37,7 @@ class TestMessenger(TestCase):
 			messenger.close()
 			coio.sleep(0.5)
 		finally:
-			p.kill()
+			os.kill(p.pid, signal.SIGKILL)
 
 	def testPerformance(self):
 		token = id(self)
