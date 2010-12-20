@@ -24,7 +24,7 @@ class TestMessenger(TestCase):
 			messenger = Messenger(host, 0.1)
 			messenger.send('1', token, q)
 			assert q.popleft() == ('1', token)
-			p.kill()
+			os.kill(p.pid, signal.SIGKILL)
 			messenger.send('2', token, q)
 			coio.sleep(0.5)
 			messenger.send('3', token, q)
