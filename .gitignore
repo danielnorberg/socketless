@@ -1,2 +1,4 @@
 .DS_Store
 *.pyc
+socketless.egg-info/*
+dist/*
