@@ -4,19 +4,18 @@ from syncless import coio
 import paths
 
 from socketless.channel import Channel, DisconnectedException
-from socketless.streamserver import StreamServer
+from socketless.channelserver import ChannelServer
 import rawsocket_echoserver_core
 
-class EchoServer(StreamServer):
+class EchoServer(ChannelServer):
 	"""docstring for Handler"""
 	def __init__(self, listener):
-		super(EchoServer, self).__init__(listener)
+		super(ChannelServer, self).__init__(listener)
 		print 'started'
 
-	def handle_connection(self, s, address):
+	def handle_connection(self, c, address):
 		print 'New connection from %s:%s' % address
 		try:
-			c = Channel(s)
 			rawsocket_echoserver_core.receiver(c)
 			c.close()
 		except DisconnectedException:

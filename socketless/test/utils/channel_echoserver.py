@@ -6,7 +6,7 @@ import argparse
 
 import paths
 
-from socketless.streamserver import StreamServer
+from socketless.channelserver import ChannelServer
 from socketless.channel import Channel, DisconnectedException
 
 def launch_echoserver(port):
@@ -14,7 +14,7 @@ def launch_echoserver(port):
 	cmd = 'python %s %d %d' % (path, port, port)
 	return subprocess.Popen(cmd, shell=True)
 
-class EchoServer(StreamServer):
+class EchoServer(ChannelServer):
 	"""docstring for Handler"""
 	def __init__(self, listener):
 		super(EchoServer, self).__init__(listener)
@@ -50,9 +50,8 @@ class EchoServer(StreamServer):
 		finally:
 			f.append(True)
 
-	def handle_connection(self, s, address):
+	def handle_connection(self, c, address):
 		print 'New connection from %s:%s' % address
-		c = Channel(s)
 		q = Queue()
 		f = Queue()
 		coio.stackless.tasklet(self.sender)(q, c, f)
@@ -75,7 +74,7 @@ def main():
 		print 'Starting server on port %d' % args.port_range_start
 		EchoServer(('0.0.0.0', args.port_range_start)).serve_forever()
 	else:
-		processes = [launch_echoserver(port)	for port in xrange(args.port_range_start, args.port_range_end + 1)]
+		processes = [launch_echoserver(port) for port in xrange(args.port_range_start, args.port_range_end + 1)]
 		while True:
 			print 'q to quit'
 			if raw_input() == 'q':

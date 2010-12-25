@@ -1,6 +1,6 @@
-__all__ = ['ropebuffer', 'channel', 'messenger', 'broadcast', 'streamserver']
+__all__ = ['ropebuffer', 'channel', 'messenger', 'broadcast', 'channelserver']
 
 import ropebuffer
 import messenger
-import streamserver
+import channelserver
 import broadcast
