@@ -1,3 +1,5 @@
+__all__ = ['Messenger']
+
 from syncless.best_stackless import stackless
 from syncless import coio
 from syncless.util import Queue

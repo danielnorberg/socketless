@@ -1,3 +1,5 @@
+__all__ = ['Channel', 'DisconnectedException']
+
 import socket
 from collections import deque
 import struct

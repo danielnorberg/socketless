@@ -1,3 +1,5 @@
+__all__ = ['RopeBuffer']
+
 from collections import deque
 
 cdef class RopeBuffer:
