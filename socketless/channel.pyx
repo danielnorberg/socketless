@@ -44,6 +44,12 @@ cdef class Channel:
 		self.send_buffer.append(self.pack(self.header_spec, len(message)))
 		self.send_buffer.append(message)
 
+	def send_joined(self, *fragments):
+		length = sum(len(fragment) for fragment in fragments)
+		self.send_buffer.append(self.pack(self.header_spec, length))
+		for fragment in fragments:
+			self.send_buffer.append(fragment)
+
 	cpdef flush(self):
 		if self.flushing:
 			raise Exception('channel.flush() reentered!')

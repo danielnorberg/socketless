@@ -11,7 +11,7 @@ from channel cimport Channel
 from channel import Channel, DisconnectedException
 
 cdef class Messenger:
-	def __init__(self, listener, reconnect_max_interval=15):
+	def __init__(self, listener, handshake=None, reconnect_max_interval=15):
 		super(Messenger, self).__init__()
 		self.reconnect_max_interval = reconnect_max_interval
 		self.listener = listener
@@ -23,6 +23,7 @@ cdef class Messenger:
 		self.connector = coio.stackless.tasklet(self._connect)()
 		self.disconnected = Queue()
 		self.connected = False
+		self.handshake = handshake
 		self.connect()
 
 	def _connect(self):
@@ -41,6 +42,20 @@ cdef class Messenger:
 		try:
 			c = Channel()
 			c.connect(self.listener)
+			if self.handshake:
+				logging.debug('Handshaking: %s', self.handshake)
+				challenge, expected_response = self.handshake
+				logging.debug('Sending challenge: "%s"', challenge)
+				c.send(challenge)
+				c.flush()
+				logging.debug('Awaiting response')
+				response = c.recv()
+				logging.debug('Got response: "%s"', response)
+				if not response == expected_response:
+					logging.warning('Failed handshake. Expected response "%s" to challenge "%s". Actual response: "%s".', expected_response, challenge, response)
+					return False
+				else:
+					logging.debug('Successfully completed handshake.')
 			self.channel = c
 			self.response_queues = deque()
 			self.send_queue = Queue()
