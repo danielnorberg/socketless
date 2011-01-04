@@ -15,7 +15,6 @@ cdef class Messenger:
 		super(Messenger, self).__init__()
 		self.reconnect_max_interval = reconnect_max_interval
 		self.listener = listener
-		self.socket = None
 		self.channel = None
 		self.response_queues = None
 		self.send_queue = None
@@ -31,7 +30,7 @@ cdef class Messenger:
 		while True:
 			interval = min_interval
 			self.disconnected.pop()
-			while not self.socket:
+			while not self.channel:
 				if self.connect():
 					interval = min_interval
 				else:
@@ -40,10 +39,9 @@ cdef class Messenger:
 
 	cpdef connect(self):
 		try:
-			s = coio.nbsocket(socket.AF_INET, socket.SOCK_STREAM)
-			s.connect(self.listener)
-			self.socket = s
-			self.channel = Channel(self.socket)
+			c = Channel()
+			c.connect(self.listener)
+			self.channel = c
 			self.response_queues = deque()
 			self.send_queue = Queue()
 			self.sender = stackless.tasklet(self._send)()
@@ -56,7 +54,7 @@ cdef class Messenger:
 
 	def _handle_disconnection(self, e):
 		"""docstring for handle_error"""
-		logging.warning(e)
+		logging.debug(e)
 		self._teardown()
 		self.disconnected.append(True)
 
@@ -68,10 +66,12 @@ cdef class Messenger:
 		if self.receiver and self.receiver != coio.stackless.getcurrent():
 			self.receiver.kill()
 			self.receiver = None
-		self.channel = None
-		if self.socket:
-			self.socket.close()
-			self.socket = None
+		if self.channel:
+			try:
+				self.channel.close()
+			except DisconnectedException:
+				pass
+			self.channel = None
 		if self.response_queues:
 			for token, response_queue in self.response_queues:
 				response_queue.append((None, token))
@@ -116,3 +116,6 @@ cdef class Messenger:
 			except DisconnectedException:
 				pass
 		self._teardown()
+
+	def __repr__(self):
+		return 'Messenger(%s:%d)' % self.listener

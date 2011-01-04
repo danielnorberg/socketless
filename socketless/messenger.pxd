@@ -2,7 +2,6 @@ from channel cimport Channel
 cdef class Messenger:
 	cdef int reconnect_max_interval
 	cdef object listener
-	cdef object socket
 	cdef Channel channel
 	cdef object response_queues
 	cdef object send_queue

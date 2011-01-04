@@ -7,6 +7,8 @@ import struct
 from ropebuffer cimport RopeBuffer
 from ropebuffer import RopeBuffer
 
+from syncless import coio
+
 cdef extern from "stdint.h":
 	ctypedef unsigned int uint32_t
 
@@ -24,7 +26,7 @@ cdef read(s, b=1024*16):
 	return data
 
 cdef class Channel:
-	def __init__(self, socket):
+	def __init__(self, socket=None):
 		super(Channel, self).__init__()
 		self.socket = socket
 		self.buffer = RopeBuffer()
@@ -33,12 +35,14 @@ cdef class Channel:
 		self.unpack = struct.unpack
 		self.header_spec = '!L'
 
+	cpdef connect(self, listener):
+		s = coio.nbsocket(socket.AF_INET, socket.SOCK_STREAM)
+		s.connect(listener)
+		self.socket = s
+
 	cpdef send(self, message):
-		try:
-			self.send_buffer.append(self.pack(self.header_spec, len(message)))
-			self.send_buffer.append(message)
-		except IOError:
-			raise DisconnectedException()
+		self.send_buffer.append(self.pack(self.header_spec, len(message)))
+		self.send_buffer.append(message)
 
 	cpdef flush(self):
 		if self.flushing:
@@ -73,8 +77,7 @@ cdef class Channel:
 					data = ''.join(strings)
 
 				self.socket.sendall(data)
-
-		except IOError:
+		except socket.error:
 			raise DisconnectedException()
 		finally:
 			self.flushing = False
@@ -91,11 +94,15 @@ cdef class Channel:
 				self.buffer.add(read(self.socket))
 			message = self.buffer.read(size)
 			return message
-		except IOError:
-			raise DisconnectedException()
 		except socket.error:
 			raise DisconnectedException()
 
 	cpdef close(self):
-		self.send('')
-		self.flush()
+		if self.socket:
+			self.send('')
+			self.flush()
+			try:
+				self.socket.close()
+			except socket.error:
+				raise DisconnectedException()
+			self.socket = None
