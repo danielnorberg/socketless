@@ -12,13 +12,37 @@ import logging
 from channel cimport Channel
 from channel import Channel, DisconnectedException
 
+cpdef invoke_all(message, messengers):
+    cdef object messenger
+    cdef object token
+    collector = Collector(len(messengers))
+    for token, messenger in messengers:
+        (<Messenger>messenger).send(message, token, collector)
+    return collector.collect()
+
+cdef class Collector:
+    def __init__(self, unsigned int wait_amount):
+        self.wait_queue = Queue()
+        self.items = range(wait_amount)
+        self.wait_amount = wait_amount
+
+    cpdef collect(self):
+        self.wait_queue.popleft()
+        return self.items
+
+    def __call__(self, value, token):
+        self.items[self.item_count] = (value, token)
+        self.item_count += 1
+        if self.item_count == self.wait_amount:
+            self.wait_queue.append(True)
+
 cdef class Messenger:
     def __init__(self, listener, handshake=None, reconnect_max_interval=15):
         super(Messenger, self).__init__()
         self.reconnect_max_interval = reconnect_max_interval
         self.listener = listener
         self.channel = None
-        self.response_queues = None
+        self.callbacks = None
         self.send_queue = None
         self.sender = None
         self.receiver = None
@@ -59,7 +83,7 @@ cdef class Messenger:
                 else:
                     logging.debug('Successfully completed handshake.')
             self.channel = c
-            self.response_queues = deque()
+            self.callbacks = deque()
             self.send_queue = Queue()
             self.sender = stackless.tasklet(self._send)()
             self.receiver = stackless.tasklet(self._recv)()
@@ -89,11 +113,11 @@ cdef class Messenger:
             except DisconnectedException:
                 pass
             self.channel = None
-        if self.response_queues:
-            for token, response_queue in self.response_queues:
-                response_queue.append((None, token))
+        if self.callbacks:
+            for token, callback in self.callbacks:
+                callback(None, token)
         self.send_queue = None
-        self.response_queues = None
+        self.callbacks = None
 
     def _send(self):
         while True:
@@ -112,18 +136,18 @@ cdef class Messenger:
         while True:
             try:
                 message = self.channel.recv()
-                token, response_queue = self.response_queues.popleft()
-                response_queue.append((message, token))
+                token, callback = self.callbacks.popleft()
+                callback(message, token)
             except DisconnectedException, e:
                 self._handle_disconnection(e)
                 return
 
-    cpdef send(self, message, token, response_queue):
+    cpdef send(self, message, token, callback):
         if self.connected:
             self.send_queue.append(message)
-            self.response_queues.append((token, response_queue))
+            self.callbacks.append((token, callback))
         else:
-            response_queue.append((None, token))
+            callback(None, token)
 
     cpdef close(self):
         self.connector.kill()

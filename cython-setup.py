@@ -45,8 +45,8 @@ extensions = [makeExtension(name) for name in extNames]
 
 # finally, we can pass all this to distutils
 setup(
-  name="gessenger",
-  packages=["gessenger"],
+  name="socketless",
+  packages=["socketless"],
   ext_modules=extensions,
   cmdclass = {'build_ext': build_ext},
 )

@@ -61,31 +61,36 @@ class EchoServer(ChannelServer):
 
     def handle_connection(self, c, address):
         logging.info('New connection from %s:%s' % address)
-
-        if self.handshake:
-            expected_challenge, response = self.handshake
-            logging.debug('Awaiting challenge.')
-            challenge = c.recv()
-            logging.debug('Got challenge: "%s"', challenge)
-            if challenge == expected_challenge:
-                logging.debug('Correct challenge, sending response: "%s"', response)
-                c.send(response)
-                c.flush()
-                q = Queue()
-                f = Queue()
-                coio.stackless.tasklet(self.sender)(q, c, f)
-                coio.stackless.tasklet(self.receiver)(q, c, f)
-                f.popleft()
-                f.popleft()
-            else:
-                logging.warning('Failed handshake!')
-                logging.warning('Expected challenge: %s', expected_challenge)
-                logging.warning('Actual challenge: %s', challenge)
         try:
-            c.close()
-            logging.info('Connection closed')
+            if self.handshake:
+                expected_challenge, response = self.handshake
+                logging.debug('Awaiting challenge.')
+                challenge = c.recv()
+                logging.debug('Got challenge: "%s"', challenge)
+                if challenge == expected_challenge:
+                    logging.debug('Correct challenge, sending response: "%s"', response)
+                    c.send(response)
+                    c.flush()
+                else:
+                    logging.warning('Failed handshake!')
+                    logging.warning('Expected challenge: %s', expected_challenge)
+                    logging.warning('Actual challenge: %s', challenge)
+                    return
+
+            q = Queue()
+            f = Queue()
+            coio.stackless.tasklet(self.sender)(q, c, f)
+            coio.stackless.tasklet(self.receiver)(q, c, f)
+            f.popleft()
+            f.popleft()
         except DisconnectedException:
             logging.warning('Client disconnected')
+        finally:
+            try:
+                c.close()
+                logging.info('Connection closed')
+            except DisconnectedException:
+                pass
 
 
 def main():

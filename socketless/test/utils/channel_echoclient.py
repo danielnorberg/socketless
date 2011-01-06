@@ -9,14 +9,13 @@ from syncless.util import Queue
 
 import paths
 
-from socketless.messenger import Messenger
-from socketless.broadcast import Broadcast
+from socketless.messenger import Messenger, invoke_all
 
-def invoke(broadcast, count, size, finished):
+def invoke(messengers, count, size, finished):
     message = '.' * size
     for i in xrange(count):
-        replies = broadcast.send(message)
-        assert set([token for reply, token in replies]) == set(token for token, messenger in broadcast.messengers)
+        replies = invoke_all(message, messengers)
+        assert set([token for reply, token in replies]) == set(token for token, messenger in messengers)
         for reply, token in replies:
             # print token
             assert message == reply
@@ -34,8 +33,8 @@ def main(ports, instances, count, size, handshake=None):
         finish_queue = Queue()
         for i in xrange(instances):
             messengers = [(id(host), Messenger(host, handshake=handshake)) for host in hosts]
-            broadcast = Broadcast(messengers)
-            tasklets.append(coio.stackless.tasklet(invoke)(broadcast, count, size, finish_queue))
+            coio.stackless.schedule()
+            tasklets.append(coio.stackless.tasklet(invoke)(messengers, count, size, finish_queue))
         for i in xrange(instances):
             finish_queue.pop()
         end_time = time.time()
