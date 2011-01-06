@@ -13,10 +13,10 @@ extensions = [Extension(
 
 setup(
         name='socketless',
-        version='0.1.1',
+        version='0.1.2',
         packages=['socketless'],
     ext_modules = extensions,
-    install_requires = ['syncless>=0.17'],
+    install_requires = ['syncless>=0.18'],
     zip_safe=True,
 
         author = "Daniel Norberg",
