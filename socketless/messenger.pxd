@@ -1,3 +1,5 @@
+# -*- Mode: Python; tab-width: 4; indent-tabs-mode: nil; -*-
+
 from channel cimport Channel
 cdef class Messenger:
 	cdef int reconnect_max_interval

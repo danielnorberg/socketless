@@ -1,3 +1,5 @@
+# -*- Mode: Python; tab-width: 4; indent-tabs-mode: nil; -*-
+
 from ropebuffer cimport RopeBuffer
 cdef class Channel:
 	cdef object socket

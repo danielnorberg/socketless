@@ -1,3 +1,5 @@
+# -*- Mode: Python; tab-width: 4; indent-tabs-mode: nil; -*-
+
 cdef class RopeBuffer:
 	cdef int i
 	cdef public int len
