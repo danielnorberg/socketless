@@ -57,11 +57,11 @@ cdef class Channel:
 		cdef object first_string
 		cdef unsigned int data_len, sent, next_len
 		cdef object strings, next_string
-		cdef unsigned int max_payload = 4096
+		cdef unsigned int max_payload = 1024*128
 		try:
 			while self.send_buffer:
 				first_string = self.send_buffer.popleft()
-				strings = deque((first_string,))
+				strings = deque((str(first_string),))
 				data_len = len(first_string)
 				next_len = 0
 				next_string = None
@@ -73,7 +73,7 @@ cdef class Channel:
 					if data_len + next_len > max_payload:
 						break
 					data_len += next_len
-					strings.append(next_string)
+					strings.append(str(next_string))
 					self.send_buffer.popleft()
 
 				# join strings, if necessary
