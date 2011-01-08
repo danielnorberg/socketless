@@ -41,14 +41,13 @@ cdef class Channel:
 		self.socket = s
 
 	cpdef send(self, message):
-		self.send_buffer.append(self.pack(self.header_spec, len(message)))
-		self.send_buffer.append(message)
-
-	def send_joined(self, *fragments):
-		length = sum(len(fragment) for fragment in fragments)
-		self.send_buffer.append(self.pack(self.header_spec, length))
-		for fragment in fragments:
-			self.send_buffer.append(fragment)
+		if isinstance(message, str) or isinstance(message, buffer):
+			self.send_buffer.append(self.pack(self.header_spec, len(message)))
+			self.send_buffer.append(message)
+		else:
+			self.send_buffer.append(self.pack(self.header_spec, sum(len(fragment) for fragment in message)))
+			for fragment in message:
+				self.send_buffer.append(fragment)
 
 	cpdef flush(self):
 		if self.flushing:
