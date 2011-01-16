@@ -1,3 +1,4 @@
 v0.1, 2010-12-18 -- Initial release.
-v0.11, 2010-12-19 -- Bugfixes and Python 2.5 compatibility.
-v0.12, 2011-01-06 -- Added challenge/response handshaking to Messenger. Replaced Broadcast class with Collector and invoke_all. Tweaked send buffer size in Channel and got great performance increases.
+v0.1.1, 2010-12-19 -- Bugfixes and Python 2.5 compatibility.
+v0.1.2, 2011-01-06 -- Added challenge/response handshaking to Messenger. Replaced Broadcast class with Collector and invoke_all. Tweaked send buffer size in Channel and got great performance increases.
+v0.2.0 2011-01-16 -- Added RPC server/client functionality.

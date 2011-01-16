@@ -13,7 +13,7 @@ extensions = [Extension(
 
 setup(
         name='socketless',
-        version='0.1.2',
+        version='0.2.0',
         packages=['socketless'],
     ext_modules = extensions,
     install_requires = ['syncless>=0.18'],
