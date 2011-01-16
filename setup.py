@@ -3,7 +3,7 @@
 from setuptools import setup
 from setuptools.extension import Extension
 
-modules = ['ropebuffer', 'channel', 'messenger']
+modules = ['ropebuffer', 'channel', 'messenger', 'serialize', 'service']
 
 extensions = [Extension(
         name ='socketless.%s' % module,

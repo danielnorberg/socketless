@@ -9,6 +9,8 @@ from ropebuffer import RopeBuffer
 
 from syncless import coio
 
+import logging
+
 cdef extern from "stdint.h":
 	ctypedef unsigned int uint32_t
 
@@ -94,7 +96,7 @@ cdef class Channel:
 				self.buffer.add(read(self.socket))
 			size = self.unpack(self.header_spec, self.buffer.read(4))[0]
 			if not size:
-				return None
+				return ''
 			while self.buffer.len < size:
 				self.buffer.add(read(self.socket))
 			message = self.buffer.read(size)
@@ -104,8 +106,8 @@ cdef class Channel:
 
 	cpdef close(self):
 		if self.socket:
-			self.send('')
-			self.flush()
+            # self.send('')
+            # self.flush()
 			try:
 				self.socket.close()
 			except socket.error:

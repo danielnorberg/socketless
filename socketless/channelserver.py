@@ -33,8 +33,12 @@ class ChannelServer(object):
             coio.stackless.schedule()
 
     def stop(self):
-        self.listening_tasklet.kill()
-        self.listening_tasklet = None
+        if self.listening_tasklet:
+            self.listening_tasklet.kill()
+            self.listening_tasklet = None
+        if self.listening_socket:
+            self.listening_socket.close()
+            self.listening_socket = None
 
     def serve_forever(self):
         self._serve()
