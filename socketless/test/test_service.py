@@ -66,14 +66,15 @@ class ServiceTest(TestCase):
 
             store_client = MultiServiceClient(clients, StoreProtocol())
 
-            for i in xrange(100000):
+            for i in xrange(100):
                 key = 'foo%d' % i
                 value = 'bar%d' % i
 
                 store_client.set(key, value)
                 values = store_client.get(key)
                 for token, received_value in values:
-                    assert received_value == value
+                    assert str(received_value) == str(value)
+
         finally:
             server1.stop()
             server2.stop()
