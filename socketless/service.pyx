@@ -159,6 +159,9 @@ class ServiceClient(object):
             return None if reply is None else unmarshal_output(MessageReader(reply))
         return binding
 
+    def is_connected(self):
+        return self.messenger.connected if self.messenger else False
+
     def close(self):
         if self.messenger:
             self.messenger.close()
@@ -185,3 +188,12 @@ class MultiServiceClient:
             replies = invoke_all((signature,) + marshal_input(*args), self.messengers)
             return [(token, None if reply is None else unmarshal_output(MessageReader(reply))) for reply, token in replies]
         return binding
+
+    def is_connected(self):
+        if not self.clients:
+            return False
+        for messenger in self.messengers:
+            if not messenger.connected:
+                return False
+        return True
+

@@ -22,7 +22,7 @@ cdef class Messenger:
     cdef object receiver
     cdef object connector
     cdef object disconnected
-    cdef bint connected
+    cdef public bint connected
     cpdef connect(self)
     cpdef send(self, message, token, callback)
     cpdef close(self)
