@@ -2,13 +2,17 @@
 
 import logging
 
+import cython
+
+from collections import deque
+
 from syncless import coio
 from syncless.util import Queue
 
 from socketless.channelserver import ChannelServer
 from socketless.channel cimport Channel
 from socketless.channel import DisconnectedException, Channel
-from socketless.messenger import Messenger, invoke_all
+from socketless.messenger import Messenger, Collector, invoke_all
 
 from serialize cimport MessageReader
 from serialize import MessageReader, MarshallerGenerator
@@ -145,19 +149,57 @@ class ServiceClient(object):
         self.protocol = protocol
         self.marshaller_generator = marshaller_generator
         self.messenger = Messenger(listener, handshake=self.protocol.handshake)
+        self.wait_queue = Queue()
+        self.async_wait_queue = Queue()
+        self.async_replies = deque()
         for name, method in protocol.methods.iteritems():
             setattr(self, name, self._create_binding(method))
+        for name, method in protocol.methods.iteritems():
+            async_name = '%s_async' % name
+            collector_name = '%s_collector' % name
+            setattr(self, async_name, self._create_async_binding(method))
+            setattr(self, collector_name, self._create_async_collector_binding(method))
+
 
     def _create_binding(self, method):
         marshal_input, unmarshal_input = self.marshaller_generator.compile(method.input_parameters)
         marshal_output, unmarshal_output = self.marshaller_generator.compile(method.output_parameters)
-        signature = method.signature
-        token = id(self.messenger)
-        messengers = [(token, self.messenger)]
-        def binding(*args):
-            [(reply, reply_token)] = invoke_all((signature,) + marshal_input(*args), messengers)
+        signature = (method.signature, )
+        wait_queue = self.wait_queue
+        wait_queue_append = self.wait_queue.append
+        wait_queue_pop = self.wait_queue.pop
+        messenger_send = self.messenger.send
+        def sync_callback(value, token):
+            wait_queue_append(value)
+        def sync_binding(*args):
+            messenger_send(signature + marshal_input(*args), self, sync_callback)
+            reply = wait_queue_pop()
             return None if reply is None else unmarshal_output(MessageReader(reply))
-        return binding
+        return sync_binding
+
+
+    def _create_async_collector_binding(self, method):
+        marshal_output, unmarshal_output = self.marshaller_generator.compile(method.output_parameters)
+        class AsyncCollector(object):
+            def __init__(self, count):
+                super(AsyncCollector, self).__init__()
+                self._raw_collector = Collector(count)
+            def collect(self):
+                data = self._raw_collector.collect()
+                replies = [(None if value is None else unmarshal_output(MessageReader(value)), token) for value, token in data]
+                return replies
+        return AsyncCollector
+
+    def _create_async_binding(self, method):
+        marshal_input, unmarshal_input = self.marshaller_generator.compile(method.input_parameters)
+        signature = (method.signature, )
+        async_wait_queue_len = self.async_wait_queue.__len__
+        async_wait_queue_append = self.async_wait_queue.append
+        messenger_send = self.messenger.send
+        async_replies_append = self.async_replies.append
+        def async_binding(collector, *args):
+            messenger_send(signature + marshal_input(*args), self, collector._raw_collector)
+        return async_binding
 
     def is_connected(self):
         return self.messenger.connected if self.messenger else False
@@ -192,7 +234,7 @@ class MultiServiceClient:
     def is_connected(self):
         if not self.clients:
             return False
-        for messenger in self.messengers:
+        for client, messenger in self.messengers:
             if not messenger.connected:
                 return False
         return True

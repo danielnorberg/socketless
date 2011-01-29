@@ -1,18 +1,14 @@
 # -*- Mode: Python; tab-width: 4; indent-tabs-mode: nil; -*-
-
 import struct
+import os
+
+from Cython.Build.Inline import cython_inline
 
 from cpython.list cimport *
 from cpython.ref cimport *
 
 cdef object int32_unpack = struct.Struct('!L').unpack
 cdef object int64_unpack = struct.Struct('!Q').unpack
-
-cpdef str_info(s):
-    return 0xFFFFFFFF if s is None else len(s)
-
-cpdef pack_str(s):
-    return '' if s is None else s
 
 cdef class MessageReader:
     """docstring for MessageReader"""
@@ -54,7 +50,8 @@ cdef class MessageReader:
         else:
             return self._read(string_length)
 
-
+def get_reader_type(arg, ctx):
+    return 'MessageReader'
 
 cdef class MarshallerGenerator(object):
     """docstring for Marshaller"""
@@ -69,33 +66,29 @@ cdef class MarshallerGenerator(object):
         marshalling_segments = self.marshalling_segments(format)
         unmarshalling_segments = self.unmarshalling_segments(format)
 
-        segment_unpackers = dict(('unpack_%s' % name, s.unpack) for name, exprs, s in unmarshalling_segments if s != str)
-        segment_packers = dict(('pack_%s' % name, s.pack) for name, exprs, s in marshalling_segments if s != str)
-        marshal_operations = ['pack_%s(%s)' % (name, ','.join(exprs)) if s != str else ','.join(['pack_str(%s)' % expr for expr in exprs]) for name, exprs, s in marshalling_segments]
-        unmarshal_operations = ['unpack_%s(reader.read(%d))' % (name, s.size) if s != str else 'reader.read_string()' for name, exprs, s in unmarshalling_segments]
+        packers = dict(('pack_%s' % name, s.pack) for name, exprs, s, sf in marshalling_segments if s != str)
+        unpackers = dict(('unpack_%s' % name, s.unpack) for name, exprs, s, sf in unmarshalling_segments if s != str)
 
-        marshal_env = segment_packers
-        unmarshal_env = segment_unpackers
+        marshal_operations = ['pack_%s(%s)' % (name, ','.join(exprs)) if s != str else ','.join(['"" if %s is None else %s' % (expr, expr) for expr in exprs]) for name, exprs, s, sf in marshalling_segments]
+        unmarshal_operations = ['unpack_%s(reader.read(%d))' % (name, s.size) if s != str else 'reader.read_string()' for name, exprs, s, sf in unmarshalling_segments]
 
-        marshal_env['str_info'] = str_info
-        marshal_env['pack_str'] = pack_str
+        marshal_env = packers
+        unmarshal_env = unpackers
 
-        marshal_template = "def %s(%s): \n"\
-                           "    return %s\n"
+        marshal_template = \
+            "def %s(%s): \n"\
+            "    return %s\n"
 
-
-        unmarshal_template = "def %s(reader):\n"\
-                             "    %s = %s\n"\
-                             "    return %s\n"
+        unmarshal_template = \
+            "def %s(reader):\n"\
+            "    %s = %s\n"\
+            "    return %s\n"
 
         marshal_name = 'marshal_%s' % '_'.join(parameter_names)
         unmarshal_name = 'unmarshal_%s' % '_'.join(parameter_names)
-        parameter_list = ','.join(parameter_names)
+        parameter_list = ', '.join(parameter_names)
         marshal_code = marshal_template % (marshal_name, parameter_list, ', '.join(marshal_operations))
         unmarshal_code = unmarshal_template % (unmarshal_name, parameter_list, ', '.join(unmarshal_operations), parameter_list)
-
-        # print marshal_code
-        # print unmarshal_code
 
         marshal_code_compiled = compile(marshal_code, 'serialize.MarshallerGenerator.compile.marshal', 'exec')
         unmarshal_code_compiled = compile(unmarshal_code, 'serialize.MarshallerGenerator.compile.unmarshal', 'exec')
@@ -112,8 +105,9 @@ cdef class MarshallerGenerator(object):
         segment_name = '_'.join([name for name, expr, typ in segment])
         expressions = [expr for name, expr, typ in segment]
         types = [typ for name, expr, typ in segment]
-        s = struct.Struct('!' + ''.join(types)) if types[0] != str else str
-        return (segment_name, expressions, s)
+        format = '!' + ''.join(types) if types[0] != str else str
+        s = struct.Struct(format) if format != str else str
+        return (segment_name, expressions, s, format)
 
     cdef unmarshalling_segments(self, format):
         segment = []
@@ -139,7 +133,7 @@ cdef class MarshallerGenerator(object):
         segments = []
         for name, typ in format:
             if typ is str:
-                segment.append(('len_%s' % name, 'str_info(%s)' % name, 'L'))
+                segment.append(('len_%s' % name, '0xFFFFFFFF if %s is None else len(%s)' % (name, name), 'L'))
                 segments.append(self.compile_segment(segment))
                 segments.append(self.compile_segment([(name, name, str)]))
                 segment = []

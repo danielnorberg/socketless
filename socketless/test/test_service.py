@@ -12,6 +12,7 @@ import unittest
 from utils.testcase import TestCase
 
 from socketless.service import Protocol, Service, ServiceServer, Method, ServiceClient, MultiServiceClient
+from socketless.messenger import Collector
 
 class StoreProtocol(Protocol):
     handshake = ('Store', 'Ok')
@@ -34,6 +35,9 @@ class StoreService(Service):
     def get(self, key):
         return self.data.get(key, None)
 
+def spawn_server(port):
+    return Popen('python %s %d' % (os.path.abspath(__file__), port), shell=True)
+
 class ServiceTest(TestCase):
     def testInProcessSingleService(self):
         print
@@ -53,7 +57,7 @@ class ServiceTest(TestCase):
                 assert store_client.get(key) == value
             elapsed = time.time() - start
             print 'Elapsed: %.2fs' % elapsed
-            print '%.2f invocations / s' % (N / elapsed)
+            print '%.2f invocations / s' % (2 * N / elapsed)
         finally:
             server.stop()
 
@@ -91,7 +95,7 @@ class ServiceTest(TestCase):
         print
         print 'testInterProcessSingleService'
         N = 1000
-        p = Popen('python %s 6000' % os.path.abspath(__file__), shell=True)
+        p = spawn_server(6000)
         listener = ('localhost', 6000)
         try:
             store_client = ServiceClient(listener, StoreProtocol())
@@ -105,7 +109,43 @@ class ServiceTest(TestCase):
                 assert store_client.get(key) == value
             elapsed = time.time() - start
             print 'Elapsed: %.2fs' % elapsed
-            print '%.2f invocations / s' % (N / elapsed)
+            print '%.2f invocations / s' % (2 * N / elapsed)
+        finally:
+            p.kill()
+
+    def testInterProcessSingleService_Async(self):
+        print
+        print 'testInterProcessSingleService_Async'
+        N = 10000
+        p = spawn_server(6000)
+        listener = ('localhost', 6000)
+        try:
+            store_client = ServiceClient(listener, StoreProtocol())
+            while not store_client.is_connected():
+                coio.sleep(0.01)
+            data = [('foo%d' % i, 'bar%d' % i) for i in xrange(N)]
+            data = [(key*100, value*100) for key, value in data]
+            start = time.time()
+
+            collector = store_client.set_collector(N)
+            for key, value in data:
+                store_client.set_async(collector, key, value)
+            replies = collector.collect()
+            assert len(replies) == len(data)
+
+            collector = store_client.get_collector(N)
+            for key, value in data:
+                store_client.get_async(collector, key)
+            replies = collector.collect()
+            assert len(replies) == len(data)
+            for (fetched_value, client), (key, value) in zip(replies, data):
+                if fetched_value != value:
+                    print '%s (%d %s) != %s (%d %s)' % (repr(fetched_value), len(fetched_value), type(fetched_value), repr(value), len(value), type(value))
+                assert fetched_value == value
+
+            elapsed = time.time() - start
+            print 'Elapsed: %.2fs' % elapsed
+            print '%.2f invocations / s' % (2 * N / elapsed)
         finally:
             p.kill()
 
@@ -114,12 +154,13 @@ class ServiceTest(TestCase):
         print 'testInterProcessMultiService'
         N = 1000
         ports = range(6000, 6010)
-        ps = [Popen('python %s %d' % (os.path.abspath(__file__), port), shell=True) for port in ports]
+        ps = [spawn_server(port) for port in ports]
         listeners = [('localhost', port) for port in ports]
         try:
             clients = [ServiceClient(listener, StoreProtocol()) for listener in listeners]
             store_client = MultiServiceClient(clients, StoreProtocol())
-            coio.sleep(1)
+            while not store_client.is_connected():
+                coio.sleep(0.1)
             start = time.time()
             for i in xrange(N):
                 key = 'foo%d' % i
@@ -127,6 +168,8 @@ class ServiceTest(TestCase):
                 store_client.set(key, value)
                 values = store_client.get(key)
                 for token, received_value in values:
+                    if str(received_value) != str(value):
+                        print received_value, value
                     assert str(received_value) == str(value)
             elapsed = time.time() - start
             print 'Elapsed: %.2fs' % elapsed
@@ -135,30 +178,6 @@ class ServiceTest(TestCase):
             for p in ps:
                 p.kill()
             coio.stackless.schedule()
-
-
-    def testMultiServiceClientUpdateSpeed(self):
-        print
-        print 'testMultiServiceClientUpdateSpeed'
-        N = 100000
-        ports = range(6000, 6005)
-        listeners = [('localhost', port) for port in ports]
-        gc.disable()
-        all_clients = []
-        try:
-            protocol = StoreProtocol()
-            clients = [ServiceClient(listener, protocol) for listener in listeners]
-            multiservice_client = MultiServiceClient(clients, protocol)
-            start = time.time()
-            for i in xrange(N):
-                multiservice_client.update_clients(clients)
-            elapsed = time.time() - start
-            print 'Elapsed: %.2fs' % elapsed
-            print '%.2f updates / s' % (N / elapsed)
-            for client in clients:
-                client.close()
-        finally:
-            gc.enable()
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
