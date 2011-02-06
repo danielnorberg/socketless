@@ -3,7 +3,9 @@
 import unittest
 import shutil
 import processing
-import tempfile, os
+import tempfile
+import os
+import signal
 import debug
 import logging
 
@@ -14,6 +16,7 @@ class TestCase(unittest.TestCase):
         self.files = []
         self.directories = []
         self.processes = []
+        self.subprocesses = []
         if not hasattr(self, 'logging_is_configured'):
             debug.configure_logging(type(self).__name__, logging.ERROR)
             self.logging_is_configured = True
@@ -22,6 +25,8 @@ class TestCase(unittest.TestCase):
         """docstring for tearDown"""
         for process in self.processes:
             process.terminate()
+        for subprocess in self.subprocesses:
+            os.kill(subprocess.pid, signal.SIGKILL)
         for filepath in self.files:
             if os.path.isfile(filepath):
                 os.unlink(filepath)
@@ -45,3 +50,8 @@ class TestCase(unittest.TestCase):
         process = processing.Process(target=target, **kwargs)
         self.processes.append(process)
         process.start()
+
+    def registerSubprocess(self, subprocess):
+        self.subprocesses.append(subprocess)
+        """docstring for registerSubprocess"""
+        pass

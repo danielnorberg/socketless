@@ -3,6 +3,7 @@
 from channel cimport Channel
 
 cpdef invoke_all(message, messengers)
+cpdef send_all(message, messengers, collector)
 
 cdef class Collector:
     cdef unsigned int item_count

@@ -12,6 +12,10 @@ import logging
 from channel cimport Channel
 from channel import Channel, DisconnectedException
 
+cpdef send_all(message, messengers, collector):
+    for token, messenger in messengers:
+        (<Messenger>messenger).send(message, token, collector)
+
 cpdef invoke_all(message, messengers):
     cdef object messenger
     cdef object token
@@ -150,12 +154,9 @@ cdef class Messenger:
             callback(None, token)
 
     cpdef close(self):
-        self.connector.kill()
-        if self.connected:
-            try:
-                self.channel.close()
-            except DisconnectedException:
-                pass
+        if self.connector:
+            self.connector.kill()
+            self.connector = None
         self._teardown()
 
     def __repr__(self):

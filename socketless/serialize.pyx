@@ -12,7 +12,10 @@ cdef object int64_unpack = struct.Struct('!Q').unpack
 
 cdef class MessageReader:
     """docstring for MessageReader"""
-    def __init__(self, message):
+    def __init__(self, message=None):
+        self.update(message)
+
+    cpdef update(self, message):
         self.message = message
         self.i = 0
 

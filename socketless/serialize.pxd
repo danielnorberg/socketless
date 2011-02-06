@@ -4,6 +4,7 @@ cdef class MessageReader(object):
     cdef object message
     cdef public unsigned long i
 
+    cpdef update(self, object message)
     cdef inline object _read(self, unsigned long length)
     cdef inline object _read_string(self)
     cdef inline unsigned long read_int(self)

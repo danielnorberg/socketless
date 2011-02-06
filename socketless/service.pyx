@@ -12,7 +12,7 @@ from syncless.util import Queue
 from socketless.channelserver import ChannelServer
 from socketless.channel cimport Channel
 from socketless.channel import DisconnectedException, Channel
-from socketless.messenger import Messenger, Collector, invoke_all
+from socketless.messenger import Messenger, Collector, invoke_all, send_all
 
 from serialize cimport MessageReader
 from serialize import MessageReader, MarshallerGenerator
@@ -29,6 +29,45 @@ class Protocol(object):
     """docstring for Protocol"""
     def __init__(self):
         super(Protocol, self).__init__()
+
+cdef class Flusher:
+    cdef object result_queues
+    cdef object queue
+    cdef Channel channel
+    cdef object flush_task
+    cdef object send_task
+
+    def __init__(self, channel):
+        self.channel = channel
+        self.queue = Queue()
+        self.result_queues = Queue()
+        self.flush_task = coio.stackless.tasklet(self._flush)()
+        self.send_task = coio.stackless.tasklet(self._send)()
+
+    def _send(self):
+        try:
+            while True:
+                result_queue = self.result_queues.popleft()
+                result = result_queue.popleft()
+                self.channel.send(result)
+                if len(self.queue) == 0:
+                    self.queue.append(True)
+        except DisconnectedException:
+            pass
+
+    def _flush(self):
+        try:
+            while True:
+                self.queue.popleft()
+                self.channel.flush()
+        except DisconnectedException:
+            pass
+
+    cdef expect(self, queue):
+        self.result_queues.append(queue)
+
+    cdef kill(self):
+        self.flush_task.kill()
 
 cdef class Service(object):
     cdef object marshaller_generator
@@ -47,27 +86,33 @@ cdef class Service(object):
     def create_binding(self, method, implementation):
         marshal_input, unmarshal_input = self.marshaller_generator.compile(method.input_parameters)
         marshal_output, unmarshal_output = self.marshaller_generator.compile(method.output_parameters)
-        if len(method.input_parameters) == 0:
-            if len(method.output_parameters) < 2:
-                def binding(reader):
-                    return marshal_output(implementation())
-            else:
-                def binding(reader):
-                    return marshal_output(*implementation())
-        elif len(method.input_parameters) == 1:
-            if len(method.output_parameters) < 2:
-                def binding(reader):
-                    return marshal_output(implementation(unmarshal_input(reader)))
-            else:
-                def binding(reader):
-                    return marshal_output(*implementation(unmarshal_input(reader)))
+
+        if len(method.output_parameters) == 0:
+            def wrap_callback(callback):
+                def unmarshalling_callback_none(result):
+                    callback('')
+                return unmarshalling_callback_none
+        elif len(method.output_parameters) == 1:
+            def wrap_callback(callback):
+                def unmarshalling_callback_single(result):
+                    callback(marshal_output(result))
+                return unmarshalling_callback_single
         else:
-            if len(method.output_parameters) < 2:
-                def binding(reader):
-                    return marshal_output(implementation(*unmarshal_input(reader)))
-            else:
-                def binding(reader):
-                    return marshal_output(*implementation(*unmarshal_input(reader)))
+            def wrap_callback(callback):
+                def unmarshalling_callback_tuple(result):
+                    callback(marshal_output(*result))
+                return unmarshalling_callback_tuple
+
+        if len(method.input_parameters) == 0:
+            def binding(callback, reader):
+                implementation(wrap_callback(callback))
+        elif len(method.input_parameters) == 1:
+            def binding(callback, reader):
+                implementation(wrap_callback(callback), unmarshal_input(reader))
+        else:
+            def binding(callback, reader):
+                implementation(wrap_callback(callback), *unmarshal_input(reader))
+
         return binding
 
     cpdef _flush_loop(self, Channel channel, flush_queue):
@@ -79,19 +124,19 @@ cdef class Service(object):
             pass
 
     cpdef handle_connection(self, Channel channel):
-        cdef MessageReader reader
-        flush_queue = Queue()
-        flusher = coio.stackless.tasklet(self._flush_loop)(channel, flush_queue)
+        # cdef Channel channel = _channel
+        cdef MessageReader reader = MessageReader()
+        cdef object flush_queue = Queue()
+        cdef Flusher flusher = Flusher(channel)
         try:
             while True:
+                queue = Queue()
                 message = channel.recv()
-                reader = MessageReader(message)
+                reader.update(message)
                 signature = reader.read(1)
                 binding = self.bindings[signature]
-                response = binding(reader)
-                channel.send(response)
-                if len(flush_queue) == 0:
-                    flush_queue.append(True)
+                flusher.expect(queue)
+                binding(queue.append, reader)
         finally:
             flusher.kill()
 
@@ -160,7 +205,6 @@ class ServiceClient(object):
             setattr(self, async_name, self._create_async_binding(method))
             setattr(self, collector_name, self._create_async_collector_binding(method))
 
-
     def _create_binding(self, method):
         marshal_input, unmarshal_input = self.marshaller_generator.compile(method.input_parameters)
         marshal_output, unmarshal_output = self.marshaller_generator.compile(method.output_parameters)
@@ -180,9 +224,9 @@ class ServiceClient(object):
 
     def _create_async_collector_binding(self, method):
         marshal_output, unmarshal_output = self.marshaller_generator.compile(method.output_parameters)
-        class AsyncCollector(object):
+        class AsyncCollector:
+            __slots__ = ['_raw_collector']
             def __init__(self, count):
-                super(AsyncCollector, self).__init__()
                 self._raw_collector = Collector(count)
             def collect(self):
                 data = self._raw_collector.collect()
@@ -215,21 +259,48 @@ class MultiServiceClient:
         self.protocol = protocol
         self.marshaller_generator = marshaller_generator
         for name, method in protocol.methods.iteritems():
-            setattr(self, name, self.__create_binding(method))
+            setattr(self, name, self._create_binding(method))
+        for name, method in protocol.methods.iteritems():
+            async_name = '%s_async' % name
+            collector_name = '%s_collector' % name
+            setattr(self, async_name, self._create_async_binding(method))
+            setattr(self, collector_name, self._create_async_collector_binding(method))
         self.update_clients(clients)
 
     def update_clients(self, clients):
         self.clients = clients
         self.messengers = [(client, client.messenger) for client in self.clients]
 
-    def __create_binding(self, method):
+    def _create_binding(self, method):
         marshal_input, unmarshal_input = self.marshaller_generator.compile(method.input_parameters)
         marshal_output, unmarshal_output = self.marshaller_generator.compile(method.output_parameters)
         signature = method.signature
-        def binding(*args):
+        def multi_binding(*args):
             replies = invoke_all((signature,) + marshal_input(*args), self.messengers)
             return [(token, None if reply is None else unmarshal_output(MessageReader(reply))) for reply, token in replies]
-        return binding
+        return multi_binding
+
+    def _create_async_collector_binding(self, method):
+        marshal_output, unmarshal_output = self.marshaller_generator.compile(method.output_parameters)
+        class MultiAsyncCollector:
+            __slots__ = ['_raw_collector']
+            def __init__(_self, count):
+                _self._raw_collector = Collector(count * len(self.clients))
+            def collect(_self):
+                replies = dict()
+                replies_setdefault = replies.setdefault
+                data = _self._raw_collector.collect()
+                for value, token in data:
+                    replies_setdefault(token, []).append(unmarshal_output(MessageReader(value)))
+                return replies
+        return MultiAsyncCollector
+
+    def _create_async_binding(self, method):
+        marshal_input, unmarshal_input = self.marshaller_generator.compile(method.input_parameters)
+        signature = method.signature
+        def async_multi_binding(collector, *args):
+            send_all((signature,) + marshal_input(*args), self.messengers, collector._raw_collector)
+        return async_multi_binding
 
     def is_connected(self):
         if not self.clients:
