@@ -12,6 +12,7 @@ from syncless.util import Queue
 from socketless.channelserver import ChannelServer
 from socketless.channel cimport Channel
 from socketless.channel import DisconnectedException, Channel
+from socketless.messenger cimport Messenger, Collector
 from socketless.messenger import Messenger, Collector, invoke_all, send_all
 
 from serialize cimport MessageReader
@@ -89,7 +90,7 @@ cdef class Service(object):
 
         if len(method.output_parameters) == 0:
             def wrap_callback(callback):
-                def unmarshalling_callback_none(result):
+                def unmarshalling_callback_none():
                     callback('')
                 return unmarshalling_callback_none
         elif len(method.output_parameters) == 1:
@@ -124,7 +125,6 @@ cdef class Service(object):
             pass
 
     cpdef handle_connection(self, Channel channel):
-        # cdef Channel channel = _channel
         cdef MessageReader reader = MessageReader()
         cdef object flush_queue = Queue()
         cdef Flusher flusher = Flusher(channel)
@@ -141,10 +141,10 @@ cdef class Service(object):
             flusher.kill()
 
 
-class ServiceServer(object):
-    """docstring for ServiceServer"""
+class Server(object):
+    """docstring for Server"""
     def __init__(self, listener, services):
-        super(ServiceServer, self).__init__()
+        super(Server, self).__init__()
         self.services = dict((service.protocol.handshake[0], service) for service in services)
         self.listener = listener
         self.channel_server = ChannelServer(self.listener, handle_connection=self.handle_connection)
@@ -186,10 +186,11 @@ class ServiceServer(object):
     def stop(self):
         self.channel_server.stop()
 
-class ServiceClient(object):
-    """docstring for ServiceClient"""
-    def __init__(self, listener, protocol, marshaller_generator=MarshallerGenerator()):
-        super(ServiceClient, self).__init__()
+class Client(object):
+    """docstring for Client"""
+    def __init__(self, listener, protocol, marshaller_generator=MarshallerGenerator(), tag=None):
+        super(Client, self).__init__()
+        self.tag = tag
         self.listener = listener
         self.protocol = protocol
         self.marshaller_generator = marshaller_generator
@@ -253,39 +254,37 @@ class ServiceClient(object):
             self.messenger.close()
             self.messenger = None
 
-class MultiServiceClient:
-    """docstring for MultiServiceClient"""
-    def __init__(self, clients, protocol, marshaller_generator=MarshallerGenerator()):
+cpdef send_all_clients(message, clients, collector):
+    for client in clients:
+        (<Messenger>(client.messenger)).send(message, client, collector)
+
+class MulticastClient:
+    """docstring for MulticastClient"""
+    def __init__(self, protocol, marshaller_generator=MarshallerGenerator()):
         self.protocol = protocol
         self.marshaller_generator = marshaller_generator
         for name, method in protocol.methods.iteritems():
             setattr(self, name, self._create_binding(method))
         for name, method in protocol.methods.iteritems():
-            async_name = '%s_async' % name
-            collector_name = '%s_collector' % name
-            setattr(self, async_name, self._create_async_binding(method))
-            setattr(self, collector_name, self._create_async_collector_binding(method))
-        self.update_clients(clients)
-
-    def update_clients(self, clients):
-        self.clients = clients
-        self.messengers = [(client, client.messenger) for client in self.clients]
+            setattr(self, '%s_async' % name, self._create_async_binding(method))
+            setattr(self, '%s_collector' % name, self._create_async_collector_binding(method))
 
     def _create_binding(self, method):
         marshal_input, unmarshal_input = self.marshaller_generator.compile(method.input_parameters)
         marshal_output, unmarshal_output = self.marshaller_generator.compile(method.output_parameters)
         signature = method.signature
-        def multi_binding(*args):
-            replies = invoke_all((signature,) + marshal_input(*args), self.messengers)
-            return [(token, None if reply is None else unmarshal_output(MessageReader(reply))) for reply, token in replies]
+        def multi_binding(clients, *args):
+            replies = invoke_all((signature,) + marshal_input(*args), [(client, client.messenger) for client in clients])
+            return [(client, None if reply is None else unmarshal_output(MessageReader(reply))) for reply, client in replies]
         return multi_binding
 
     def _create_async_collector_binding(self, method):
         marshal_output, unmarshal_output = self.marshaller_generator.compile(method.output_parameters)
         class MultiAsyncCollector:
-            __slots__ = ['_raw_collector']
-            def __init__(_self, count):
-                _self._raw_collector = Collector(count * len(self.clients))
+            __slots__ = ['_raw_collector', 'clients']
+            def __init__(_self, clients, count):
+                _self.clients = clients
+                _self._raw_collector = Collector(count * len(_self.clients))
             def collect(_self):
                 replies = dict()
                 replies_setdefault = replies.setdefault
@@ -299,14 +298,5 @@ class MultiServiceClient:
         marshal_input, unmarshal_input = self.marshaller_generator.compile(method.input_parameters)
         signature = method.signature
         def async_multi_binding(collector, *args):
-            send_all((signature,) + marshal_input(*args), self.messengers, collector._raw_collector)
+            send_all_clients((signature,) + marshal_input(*args), collector.clients, collector._raw_collector)
         return async_multi_binding
-
-    def is_connected(self):
-        if not self.clients:
-            return False
-        for client, messenger in self.messengers:
-            if not messenger.connected:
-                return False
-        return True
-

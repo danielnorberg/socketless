@@ -1,5 +1,6 @@
 # -*- Mode: Python; tab-width: 4; indent-tabs-mode: nil; -*-
 import struct
+import logging
 import os
 
 from Cython.Build.Inline import cython_inline
@@ -73,7 +74,7 @@ cdef class MarshallerGenerator(object):
         unpackers = dict(('unpack_%s' % name, s.unpack) for name, exprs, s, sf in unmarshalling_segments if s != str)
 
         marshal_operations = ['pack_%s(%s)' % (name, ','.join(exprs)) if s != str else ','.join(['"" if %s is None else %s' % (expr, expr) for expr in exprs]) for name, exprs, s, sf in marshalling_segments]
-        unmarshal_operations = ['unpack_%s(reader.read(%d))' % (name, s.size) if s != str else 'reader.read_string()' for name, exprs, s, sf in unmarshalling_segments]
+        unmarshal_operations = ['unpack_%s(reader.read(%d))%s' % (name, s.size, '[0]' if len(exprs) == 1 else '') if s != str else 'reader.read_string()' for name, exprs, s, sf in unmarshalling_segments]
 
         marshal_env = packers
         unmarshal_env = unpackers
@@ -92,6 +93,9 @@ cdef class MarshallerGenerator(object):
         parameter_list = ', '.join(parameter_names)
         marshal_code = marshal_template % (marshal_name, parameter_list, ', '.join(marshal_operations))
         unmarshal_code = unmarshal_template % (unmarshal_name, parameter_list, ', '.join(unmarshal_operations), parameter_list)
+
+        logging.debug('marshal_code: \n%s', unmarshal_code)
+        logging.debug('unmarshal_code: \n%s', unmarshal_code)
 
         marshal_code_compiled = compile(marshal_code, 'serialize.MarshallerGenerator.compile.marshal', 'exec')
         unmarshal_code_compiled = compile(unmarshal_code, 'serialize.MarshallerGenerator.compile.unmarshal', 'exec')
