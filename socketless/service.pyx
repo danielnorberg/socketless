@@ -170,7 +170,7 @@ class Server(object):
             if service:
                 service.handle_connection(channel)
         except DisconnectedException:
-            logging.info('client %s disconnected', addr)
+            logging.debug('client %s disconnected', addr)
         except BaseException, e:
             logging.exception(e)
         finally:
@@ -180,7 +180,7 @@ class Server(object):
                 pass
 
     def serve(self):
-        logging.info("Listening on %s", self.listener)
+        logging.debug("Listening on %s", self.listener)
         self.channel_server.serve()
 
     def stop(self):
