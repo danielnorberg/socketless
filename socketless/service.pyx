@@ -195,9 +195,6 @@ class Client(object):
         self.protocol = protocol
         self.marshaller_generator = marshaller_generator
         self.messenger = Messenger(listener, handshake=self.protocol.handshake)
-        self.wait_queue = Queue()
-        self.async_wait_queue = Queue()
-        self.async_replies = deque()
         for name, method in protocol.methods.iteritems():
             setattr(self, name, self._create_binding(method))
         for name, method in protocol.methods.iteritems():
@@ -210,15 +207,13 @@ class Client(object):
         marshal_input, unmarshal_input = self.marshaller_generator.compile(method.input_parameters)
         marshal_output, unmarshal_output = self.marshaller_generator.compile(method.output_parameters)
         signature = (method.signature, )
-        wait_queue = self.wait_queue
-        wait_queue_append = self.wait_queue.append
-        wait_queue_pop = self.wait_queue.pop
         messenger_send = self.messenger.send
-        def sync_callback(value, token):
-            wait_queue_append(value)
         def sync_binding(*args):
+            wait_queue = Queue()
+            def sync_callback(value, token):
+                wait_queue.append(value)
             messenger_send(signature + marshal_input(*args), self, sync_callback)
-            reply = wait_queue_pop()
+            reply = wait_queue.pop()
             return None if reply is None else unmarshal_output(MessageReader(reply))
         return sync_binding
 
@@ -238,10 +233,7 @@ class Client(object):
     def _create_async_binding(self, method):
         marshal_input, unmarshal_input = self.marshaller_generator.compile(method.input_parameters)
         signature = (method.signature, )
-        async_wait_queue_len = self.async_wait_queue.__len__
-        async_wait_queue_append = self.async_wait_queue.append
         messenger_send = self.messenger.send
-        async_replies_append = self.async_replies.append
         def async_binding(collector, *args):
             messenger_send(signature + marshal_input(*args), self, collector._raw_collector)
         return async_binding

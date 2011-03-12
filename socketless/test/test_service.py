@@ -71,7 +71,7 @@ class ServiceTest(TestCase):
         for i in xrange(N):
             key = 'foo%d' % i
             value = 'bar%d' % i
-            timestamp = long(time.time() * 1000000)
+            timestamp = i
             retreived_timestamp = store_client.set(key, timestamp, value)
             assert retreived_timestamp == timestamp
             retreived_timestamp, retreived_value = store_client.get(key)
