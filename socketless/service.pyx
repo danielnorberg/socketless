@@ -19,15 +19,16 @@ from serialize cimport MessageReader
 from serialize import MessageReader, MarshallerGenerator
 
 class Method(object):
-    """docstring for Method"""
     def __init__(self, signature, input, output):
         super(Method, self).__init__()
         self.signature = signature
         self.input_parameters = input
         self.output_parameters = output
+        marshaller_generator = MarshallerGenerator()
+        self.marshal_input, self.unmarshal_input = marshaller_generator.compile(self.input_parameters)
+        self.marshal_output, self.unmarshal_output = marshaller_generator.compile(self.output_parameters)
 
 class Protocol(object):
-    """docstring for Protocol"""
     def __init__(self):
         super(Protocol, self).__init__()
 
@@ -71,22 +72,19 @@ cdef class Flusher:
         self.flush_task.kill()
 
 cdef class Service(object):
-    cdef object marshaller_generator
     cdef object _protocol
     cdef dict implementations
     cdef dict bindings
 
-    """docstring for Service"""
-    def __init__(_self, _protocol, _marshaller_generator=MarshallerGenerator(), **implementations):
-        super(Service, _self).__init__()
-        _self.marshaller_generator = _marshaller_generator
-        _self.protocol = _protocol
-        _self.implementations = implementations
-        _self.bindings = dict((method.signature, _self.create_binding(method, implementations[name])) for name, method in _self.protocol.methods.iteritems())
+    def __init__(__self, __protocol, **implementations):
+        super(Service, __self).__init__()
+        __self.protocol = __protocol
+        __self.implementations = implementations
+        __self.bindings = dict((method.signature, __self.create_binding(method, implementations[name])) for name, method in __self.protocol.methods.iteritems())
 
     def create_binding(self, method, implementation):
-        marshal_input, unmarshal_input = self.marshaller_generator.compile(method.input_parameters)
-        marshal_output, unmarshal_output = self.marshaller_generator.compile(method.output_parameters)
+        marshal_input, unmarshal_input = method.marshal_input, method.unmarshal_input
+        marshal_output, unmarshal_output = method.marshal_output, method.unmarshal_output
 
         if len(method.output_parameters) == 0:
             def wrap_callback(callback):
@@ -188,12 +186,11 @@ class Server(object):
 
 class Client(object):
     """docstring for Client"""
-    def __init__(self, listener, protocol, marshaller_generator=MarshallerGenerator(), tag=None):
+    def __init__(self, listener, protocol, tag=None):
         super(Client, self).__init__()
         self.tag = tag
         self.listener = listener
         self.protocol = protocol
-        self.marshaller_generator = marshaller_generator
         self.messenger = Messenger(listener, handshake=self.protocol.handshake)
         for name, method in protocol.methods.iteritems():
             setattr(self, name, self._create_binding(method))
@@ -204,8 +201,8 @@ class Client(object):
             setattr(self, collector_name, self._create_async_collector_binding(method))
 
     def _create_binding(self, method):
-        marshal_input, unmarshal_input = self.marshaller_generator.compile(method.input_parameters)
-        marshal_output, unmarshal_output = self.marshaller_generator.compile(method.output_parameters)
+        marshal_input, unmarshal_input = method.marshal_input, method.unmarshal_input
+        marshal_output, unmarshal_output = method.marshal_output, method.unmarshal_output
         signature = (method.signature, )
         messenger_send = self.messenger.send
         def sync_binding(*args):
@@ -219,7 +216,7 @@ class Client(object):
 
 
     def _create_async_collector_binding(self, method):
-        marshal_output, unmarshal_output = self.marshaller_generator.compile(method.output_parameters)
+        marshal_output, unmarshal_output = method.marshal_output, method.unmarshal_output
         class AsyncCollector:
             __slots__ = ['_raw_collector']
             def __init__(self, count):
@@ -231,7 +228,7 @@ class Client(object):
         return AsyncCollector
 
     def _create_async_binding(self, method):
-        marshal_input, unmarshal_input = self.marshaller_generator.compile(method.input_parameters)
+        marshal_input, unmarshal_input = method.marshal_input, method.unmarshal_input
         signature = (method.signature, )
         messenger_send = self.messenger.send
         def async_binding(collector, *args):
@@ -252,9 +249,8 @@ cpdef send_all_clients(message, clients, collector):
 
 class MulticastClient:
     """docstring for MulticastClient"""
-    def __init__(self, protocol, marshaller_generator=MarshallerGenerator()):
+    def __init__(self, protocol):
         self.protocol = protocol
-        self.marshaller_generator = marshaller_generator
         for name, method in protocol.methods.iteritems():
             setattr(self, name, self._create_binding(method))
         for name, method in protocol.methods.iteritems():
@@ -262,8 +258,8 @@ class MulticastClient:
             setattr(self, '%s_collector' % name, self._create_async_collector_binding(method))
 
     def _create_binding(self, method):
-        marshal_input, unmarshal_input = self.marshaller_generator.compile(method.input_parameters)
-        marshal_output, unmarshal_output = self.marshaller_generator.compile(method.output_parameters)
+        marshal_input, unmarshal_input = method.marshal_input, method.unmarshal_input
+        marshal_output, unmarshal_output = method.marshal_output, method.unmarshal_output
         signature = method.signature
         def multi_binding(clients, *args):
             replies = invoke_all((signature,) + marshal_input(*args), [(client, client.messenger) for client in clients])
@@ -271,7 +267,7 @@ class MulticastClient:
         return multi_binding
 
     def _create_async_collector_binding(self, method):
-        marshal_output, unmarshal_output = self.marshaller_generator.compile(method.output_parameters)
+        marshal_output, unmarshal_output = method.marshal_output, method.unmarshal_output
         class MultiAsyncCollector:
             __slots__ = ['_raw_collector', 'clients']
             def __init__(_self, clients, count):
@@ -287,7 +283,7 @@ class MulticastClient:
         return MultiAsyncCollector
 
     def _create_async_binding(self, method):
-        marshal_input, unmarshal_input = self.marshaller_generator.compile(method.input_parameters)
+        marshal_input, unmarshal_input = method.marshal_input, method.unmarshal_input
         signature = method.signature
         def async_multi_binding(collector, *args):
             send_all_clients((signature,) + marshal_input(*args), collector.clients, collector._raw_collector)
