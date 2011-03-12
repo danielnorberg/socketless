@@ -100,7 +100,7 @@ cdef class Service(object):
                 return unmarshalling_callback_single
         else:
             def wrap_callback(callback):
-                def unmarshalling_callback_tuple(result):
+                def unmarshalling_callback_tuple(*result):
                     callback(marshal_output(*result))
                 return unmarshalling_callback_tuple
 
