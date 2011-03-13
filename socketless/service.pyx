@@ -24,9 +24,18 @@ class Method(object):
         self.signature = signature
         self.input_parameters = input
         self.output_parameters = output
-        marshaller_generator = MarshallerGenerator()
-        self.marshal_input, self.unmarshal_input = marshaller_generator.compile(self.input_parameters)
-        self.marshal_output, self.unmarshal_output = marshaller_generator.compile(self.output_parameters)
+
+    def input_marshallers(self):
+        if not self.__input_marshallers:
+            marshaller_generator = MarshallerGenerator()
+            self.__input_marshallers = marshaller_generator.compile(self.input_parameters)
+        return self.__input_marshallers
+
+    def output_marshallers(self):
+        if not self.__output_marshallers:
+            marshaller_generator = MarshallerGenerator()
+            self.__output_marshallers = marshaller_generator.compile(self.output_parameters)
+        return self.__output_marshallers
 
 class Protocol(object):
     def __init__(self):
@@ -83,8 +92,8 @@ cdef class Service(object):
         __self.bindings = dict((method.signature, __self.create_binding(method, implementations[name])) for name, method in __self.protocol.methods.iteritems())
 
     def create_binding(self, method, implementation):
-        marshal_input, unmarshal_input = method.marshal_input, method.unmarshal_input
-        marshal_output, unmarshal_output = method.marshal_output, method.unmarshal_output
+        marshal_input, unmarshal_input = method.input_marshallers()
+        marshal_output, unmarshal_output = method.output_marshallers()
 
         if len(method.output_parameters) == 0:
             def wrap_callback(callback):
@@ -201,8 +210,8 @@ class Client(object):
             setattr(self, collector_name, self._create_async_collector_binding(method))
 
     def _create_binding(self, method):
-        marshal_input, unmarshal_input = method.marshal_input, method.unmarshal_input
-        marshal_output, unmarshal_output = method.marshal_output, method.unmarshal_output
+        marshal_input, unmarshal_input = method.input_marshallers()
+        marshal_output, unmarshal_output = method.output_marshallers()
         signature = (method.signature, )
         messenger_send = self.messenger.send
         def sync_binding(*args):
@@ -228,7 +237,7 @@ class Client(object):
         return AsyncCollector
 
     def _create_async_binding(self, method):
-        marshal_input, unmarshal_input = method.marshal_input, method.unmarshal_input
+        marshal_input, unmarshal_input = method.input_marshallers()
         signature = (method.signature, )
         messenger_send = self.messenger.send
         def async_binding(collector, *args):
@@ -258,8 +267,8 @@ class MulticastClient:
             setattr(self, '%s_collector' % name, self._create_async_collector_binding(method))
 
     def _create_binding(self, method):
-        marshal_input, unmarshal_input = method.marshal_input, method.unmarshal_input
-        marshal_output, unmarshal_output = method.marshal_output, method.unmarshal_output
+        marshal_input, unmarshal_input = method.input_marshallers()
+        marshal_output, unmarshal_output = method.output_marshallers()
         signature = method.signature
         def multi_binding(clients, *args):
             replies = invoke_all((signature,) + marshal_input(*args), [(client, client.messenger) for client in clients])
@@ -283,7 +292,7 @@ class MulticastClient:
         return MultiAsyncCollector
 
     def _create_async_binding(self, method):
-        marshal_input, unmarshal_input = method.marshal_input, method.unmarshal_input
+        marshal_input, unmarshal_input = method.input_marshallers()
         signature = method.signature
         def async_multi_binding(collector, *args):
             send_all_clients((signature,) + marshal_input(*args), collector.clients, collector._raw_collector)
