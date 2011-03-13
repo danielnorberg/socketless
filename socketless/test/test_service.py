@@ -38,7 +38,7 @@ class StoreService(Service):
         callback(timestamp or 0, value)
 
 def spawn_server(port):
-    return Popen('python %s %d' % (os.path.abspath(__file__), port), shell=True)
+    return Popen('%s %s %d' % (sys.executable, os.path.abspath(__file__), port), shell=True)
 
 class ServiceTest(TestCase):
     def setUp(self):

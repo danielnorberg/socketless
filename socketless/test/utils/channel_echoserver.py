@@ -17,9 +17,9 @@ def launch_echoserver(port, handshake=None):
     path = paths.path('test/utils/channel_echoserver.py')
     if handshake:
         challenge, response = handshake
-        cmd = 'python %s %d %d -c "%s" -r "%s"' % (path, port, port, challenge, response)
+        cmd = '%s %s %d %d -c "%s" -r "%s"' % (sys.executable, path, port, port, challenge, response)
     else:
-        cmd = 'python %s %d %d' % (path, port, port)
+        cmd = '%s %s %d %d' % (sys.executable, path, port, port)
     return subprocess.Popen(cmd, shell=True)
 
 class EchoServer(ChannelServer):
