@@ -13,10 +13,10 @@ extensions = [Extension(
 
 setup(
         name='socketless',
-        version='0.2.0',
+        version='0.3.0',
         packages=['socketless'],
     ext_modules = extensions,
-    install_requires = ['syncless>=0.18'],
+    install_requires = ['syncless>=0.20'],
     zip_safe=True,
 
         author = "Daniel Norberg",
@@ -28,7 +28,7 @@ setup(
                 implementing communication using messages and broadcast req/rep
                 instead of raw sockets. Socketless relies on the library syncless
                 to provide high-performance non-blocking sockets through utilization
-                of epoll/kevent/kqueue. Socketless is implemented in Cython for high througput.
+                of epoll/kevent/kqueue. Socketless is implemented in Cython for high throughput.
         """,
         license="Apache License, Version 2.0",
     classifiers=[
