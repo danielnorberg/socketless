@@ -58,7 +58,7 @@ class ServiceTest(TestCase):
         print
         print 'testInProcessSingleService'
         N = 1000
-        listener = ('localhost', 6000)
+        listener = ('localhost', 16000)
         server = Server(listener, [StoreService()])
         server.serve()
         self.servers.append(server)
@@ -85,7 +85,7 @@ class ServiceTest(TestCase):
         print
         print 'testInProcessSingleService_Async'
         N = 1000
-        listener = ('localhost', 6000)
+        listener = ('localhost', 16100)
         server = Server(listener, [StoreService()])
         server.serve()
         self.servers.append(server)
@@ -124,8 +124,8 @@ class ServiceTest(TestCase):
         print
         print 'testInProcessMultiService'
         N = 1000
-        listener1 = ('localhost', 6000)
-        listener2 = ('localhost', 6001)
+        listener1 = ('localhost', 16200)
+        listener2 = ('localhost', 16201)
         server1 = Server(listener1, [StoreService()])
         server2 = Server(listener2, [StoreService()])
         self.servers.append(server1)
@@ -158,8 +158,8 @@ class ServiceTest(TestCase):
         print
         print 'testInterProcessSingleService'
         N = 1000
-        self.registerSubprocess(spawn_server(6000))
-        listener = ('localhost', 6000)
+        self.registerSubprocess(spawn_server(16300))
+        listener = ('localhost', 16300)
         store_client = Client(listener, StoreProtocol())
         self.clients.append(store_client)
         while not store_client.is_connected():
@@ -179,8 +179,8 @@ class ServiceTest(TestCase):
         print
         print 'testInterProcessSingleService_Async'
         N = 10000
-        self.registerSubprocess(spawn_server(6000))
-        listener = ('localhost', 6000)
+        self.registerSubprocess(spawn_server(16400))
+        listener = ('localhost', 16400)
         store_client = Client(listener, StoreProtocol())
         self.clients.append(store_client)
         while not store_client.is_connected():
@@ -217,7 +217,7 @@ class ServiceTest(TestCase):
         print
         print 'testInterProcessMultiService'
         N = 100
-        ports = range(6000, 6010)
+        ports = range(16500, 16510)
         for port in ports:
             self.registerSubprocess(spawn_server(port))
         listeners = [('localhost', port) for port in ports]
@@ -251,7 +251,7 @@ class ServiceTest(TestCase):
         print 'testInterProcessMultiService_Async'
         M = 10
         N = 1000
-        ports = range(6000, 6000 + M)
+        ports = range(16600, 16600 + M)
         for port in ports:
             self.registerSubprocess(spawn_server(port))
         listeners = [('localhost', port) for port in ports]
