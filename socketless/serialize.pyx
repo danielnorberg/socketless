@@ -3,11 +3,6 @@ import struct
 import logging
 import os
 
-from Cython.Build.Inline import cython_inline
-
-from cpython.list cimport *
-from cpython.ref cimport *
-
 cdef object int32_unpack = struct.Struct('!L').unpack
 cdef object int64_unpack = struct.Struct('!Q').unpack
 
