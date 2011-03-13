@@ -89,7 +89,7 @@ cdef class Messenger:
             self.channel = c
             self.callbacks = deque()
             self.send_queue = Queue()
-            self.sender = stackless.tasklet(self._send)()
+            self.sender = stackless.tasklet(self.__send)()
             self.receiver = stackless.tasklet(self._recv)()
             self.connected = True
             return True
@@ -123,7 +123,7 @@ cdef class Messenger:
         self.send_queue = None
         self.callbacks = None
 
-    def _send(self):
+    def __send(self):
         while True:
             try:
                 while True:

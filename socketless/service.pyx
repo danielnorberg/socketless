@@ -54,10 +54,10 @@ cdef class Flusher:
         self.channel = channel
         self.queue = Queue()
         self.result_queues = Queue()
-        self.flush_task = coio.stackless.tasklet(self._flush)()
-        self.send_task = coio.stackless.tasklet(self._send)()
+        self.flush_task = coio.stackless.tasklet(self.__flush)()
+        self.send_task = coio.stackless.tasklet(self.__send)()
 
-    def _send(self):
+    def __send(self):
         try:
             while True:
                 result_queue = self.result_queues.popleft()
@@ -68,7 +68,7 @@ cdef class Flusher:
         except DisconnectedException:
             pass
 
-    def _flush(self):
+    def __flush(self):
         try:
             while True:
                 self.queue.popleft()
@@ -83,17 +83,15 @@ cdef class Flusher:
         self.flush_task.kill()
 
 cdef class Service(object):
-    cdef object _protocol
-    cdef dict implementations
-    cdef dict bindings
+    cdef public object protocol
+    cdef dict __bindings
 
-    def __init__(__self, __protocol, **implementations):
-        super(Service, __self).__init__()
-        __self.protocol = __protocol
-        __self.implementations = implementations
-        __self.bindings = dict((method.signature, __self.create_binding(method, implementations[name])) for name, method in __self.protocol.methods.iteritems())
+    def __init__(self, __protocol, **implementations):
+        super(Service, self).__init__()
+        self.protocol = __protocol
+        self.__bindings = dict((method.signature, self.__create_binding(method, implementations[name])) for name, method in self.protocol.methods.iteritems())
 
-    def create_binding(self, method, implementation):
+    def __create_binding(self, method, implementation):
         marshal_input, unmarshal_input = method.input_marshallers()
         marshal_output, unmarshal_output = method.output_marshallers()
 
@@ -125,14 +123,6 @@ cdef class Service(object):
 
         return binding
 
-    cpdef _flush_loop(self, Channel channel, flush_queue):
-        try:
-            while True:
-                flush_queue.popleft()
-                channel.flush()
-        except DisconnectedException:
-            pass
-
     cpdef handle_connection(self, Channel channel):
         cdef MessageReader reader = MessageReader()
         cdef object flush_queue = Queue()
@@ -143,7 +133,7 @@ cdef class Service(object):
                 message = channel.recv()
                 reader.update(message)
                 signature = reader.read(1)
-                binding = self.bindings[signature]
+                binding = self.__bindings[signature]
                 flusher.expect(queue)
                 binding(queue.append, reader)
         finally:
