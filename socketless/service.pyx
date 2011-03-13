@@ -24,6 +24,8 @@ class Method(object):
         self.signature = signature
         self.input_parameters = input
         self.output_parameters = output
+        self.__input_marshallers = None
+        self.__output_marshallers = None
 
     def input_marshallers(self):
         if not self.__input_marshallers:
@@ -225,7 +227,7 @@ class Client(object):
 
 
     def _create_async_collector_binding(self, method):
-        marshal_output, unmarshal_output = method.marshal_output, method.unmarshal_output
+        marshal_output, unmarshal_output = method.output_marshallers()
         class AsyncCollector:
             __slots__ = ['_raw_collector']
             def __init__(self, count):
@@ -276,7 +278,7 @@ class MulticastClient:
         return multi_binding
 
     def _create_async_collector_binding(self, method):
-        marshal_output, unmarshal_output = method.marshal_output, method.unmarshal_output
+        marshal_output, unmarshal_output = method.output_marshallers()
         class MultiAsyncCollector:
             __slots__ = ['_raw_collector', 'clients']
             def __init__(_self, clients, count):
