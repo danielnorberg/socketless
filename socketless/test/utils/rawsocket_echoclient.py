@@ -6,6 +6,7 @@ from syncless import coio
 import socket
 
 import paths
+paths.setup()
 
 from timeit import default_timer as timer
 

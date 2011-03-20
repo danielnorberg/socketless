@@ -1,6 +1,7 @@
 # -*- Mode: Python; tab-width: 4; indent-tabs-mode: nil; -*-
 
 import paths
+paths.setup()
 
 from collections import deque
 from timeit import default_timer as timer
@@ -26,6 +27,7 @@ class TestMessenger(TestCase):
             p = launch_echoserver(port)
             coio.sleep(1)
             messenger = Messenger(host, reconnect_max_interval=0.1)
+            messenger.connect()
             messenger.send('1', token, callback)
             assert q.popleft() == ('1', token)
             os.kill(p.pid, signal.SIGKILL)
@@ -58,6 +60,7 @@ class TestMessenger(TestCase):
             sent_messages = deque()
             coio.sleep(1)
             messenger = Messenger(host)
+            messenger.connect()
             message_buffer = ''.join('%d' % (i % 10) for i in xrange(N+message_length*2))
             i = 0
             start_time = timer()

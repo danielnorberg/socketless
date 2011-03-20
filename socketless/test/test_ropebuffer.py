@@ -5,6 +5,7 @@ import unittest
 from utils.testcase import TestCase
 
 import paths
+paths.setup()
 
 from socketless.ropebuffer import RopeBuffer
 

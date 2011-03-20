@@ -89,53 +89,62 @@ cdef class Service(object):
     def __init__(self, __protocol, **implementations):
         super(Service, self).__init__()
         self.protocol = __protocol
-        self.__bindings = dict((method.signature, self.__create_binding(method, implementations[name])) for name, method in self.protocol.methods.iteritems())
+        self.__bindings = dict((method.signature, self.__create_binding(method, implementations[name]))
+                               for name, method in self.protocol.methods.iteritems())
 
     def __create_binding(self, method, implementation):
         marshal_input, unmarshal_input = method.input_marshallers()
         marshal_output, unmarshal_output = method.output_marshallers()
 
-        if len(method.output_parameters) == 0:
-            def wrap_callback(callback):
-                def unmarshalling_callback_none():
-                    callback('')
-                return unmarshalling_callback_none
-        elif len(method.output_parameters) == 1:
-            def wrap_callback(callback):
-                def unmarshalling_callback_single(result):
-                    callback(marshal_output(result))
-                return unmarshalling_callback_single
-        else:
-            def wrap_callback(callback):
-                def unmarshalling_callback_tuple(*result):
-                    callback(marshal_output(*result))
-                return unmarshalling_callback_tuple
-
         if len(method.input_parameters) == 0:
-            def binding(callback, reader):
-                implementation(wrap_callback(callback))
+            if len(method.output_parameters) == 0:
+                def binding(queue, reader):
+                    implementation()
+                    queue.append(None)
+            if len(method.output_parameters) == 1:
+                def binding(queue, reader):
+                    queue.append(marshal_output(implementation()))
+            else:
+                def binding(queue, reader):
+                    queue.append(marshal_output(*implementation()))
         elif len(method.input_parameters) == 1:
-            def binding(callback, reader):
-                implementation(wrap_callback(callback), unmarshal_input(reader))
+            if len(method.output_parameters) == 0:
+                def binding(queue, reader):
+                    implementation(implementation(unmarshal_input(reader)))
+                    queue.append(None)
+            if len(method.output_parameters) == 1:
+                def binding(queue, reader):
+                    queue.append(marshal_output(implementation(unmarshal_input(reader))))
+            else:
+                def binding(queue, reader):
+                    queue.append(marshal_output(*implementation(unmarshal_input(reader))))
         else:
-            def binding(callback, reader):
-                implementation(wrap_callback(callback), *unmarshal_input(reader))
+            if len(method.output_parameters) == 0:
+                def binding(queue, reader):
+                    implementation(implementation(*unmarshal_input(reader)))
+                    queue.append(None)
+            if len(method.output_parameters) == 1:
+                def binding(queue, reader):
+                    queue.append(marshal_output(implementation(*unmarshal_input(reader))))
+            else:
+                def binding(queue, reader):
+                    queue.append(marshal_output(*implementation(*unmarshal_input(reader))))
 
         return binding
 
     cpdef handle_connection(self, Channel channel):
-        cdef MessageReader reader = MessageReader()
+        cdef MessageReader reader = None
         cdef object flush_queue = Queue()
         cdef Flusher flusher = Flusher(channel)
         try:
             while True:
                 queue = Queue()
                 message = channel.recv()
-                reader.update(message)
+                reader = MessageReader(message)
                 signature = reader.read(1)
                 binding = self.__bindings[signature]
                 flusher.expect(queue)
-                binding(queue.append, reader)
+                coio.stackless.tasklet(binding)(queue, reader)
         finally:
             flusher.kill()
 
@@ -236,13 +245,14 @@ class Client(object):
             messenger_send(signature + marshal_input(*args), self, collector._raw_collector)
         return async_binding
 
+    def connect(self):
+        self.messenger.connect()
+
     def is_connected(self):
         return self.messenger.connected if self.messenger else False
 
-    def close(self):
-        if self.messenger:
-            self.messenger.close()
-            self.messenger = None
+    def disconnect(self):
+        self.messenger.close()
 
 cpdef send_all_clients(message, clients, collector):
     for client in clients:

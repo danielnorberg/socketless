@@ -8,6 +8,7 @@ from syncless import coio
 from syncless.util import Queue
 
 import paths
+paths.setup()
 
 from socketless.messenger import Messenger, invoke_all
 
@@ -33,6 +34,8 @@ def main(ports, instances, count, size, handshake=None):
         finish_queue = Queue()
         for i in xrange(instances):
             messengers = [(id(host), Messenger(host, handshake=handshake)) for host in hosts]
+            for token, messenger in messengers:
+                messenger.connect()
             coio.stackless.schedule()
             tasklets.append(coio.stackless.tasklet(invoke)(messengers, count, size, finish_queue))
         for i in xrange(instances):

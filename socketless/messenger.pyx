@@ -54,7 +54,6 @@ cdef class Messenger:
         self.disconnected = Queue()
         self.connected = False
         self.handshake = handshake
-        self.connect()
 
     def _connect(self):
         min_interval = 0.5
@@ -94,6 +93,9 @@ cdef class Messenger:
             self.connected = True
             return True
         except socket.error, e:
+            self._handle_disconnection(e)
+            return False
+        except DisconnectedException, e:
             self._handle_disconnection(e)
             return False
 

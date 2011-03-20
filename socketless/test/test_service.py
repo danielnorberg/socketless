@@ -2,14 +2,16 @@
 import sys
 import os
 import time
-import gc
 from subprocess import Popen
 
-from syncless import coio
 import paths
+paths.setup()
+
+from syncless import coio
 import unittest
 
 from utils.testcase import TestCase
+from utils import debug
 
 from socketless.service import Method, Protocol, Service, Server, Client, MulticastClient
 from socketless.messenger import Collector
@@ -29,13 +31,13 @@ class StoreService(Service):
         )
         self.data = {}
 
-    def set(self, callback, key, timestamp, value):
+    def set(self, key, timestamp, value):
         self.data[key] = (timestamp, value)
-        callback(timestamp)
+        return timestamp
 
-    def get(self, callback, key):
+    def get(self, key):
         timestamp, value = self.data.get(key, (None, None))
-        callback(timestamp or 0, value)
+        return timestamp or 0, value
 
 def spawn_server(port):
     return Popen('%s %s %d' % (sys.executable, os.path.abspath(__file__), port), shell=True)
@@ -50,34 +52,39 @@ class ServiceTest(TestCase):
         for server in self.servers:
             server.stop()
         for client in self.clients:
-            client.close()
+            client.disconnect()
         coio.stackless.schedule()
         super(ServiceTest, self).tearDown()
 
-    def testInProcessSingleService(self):
+    def testInProcessSingleService_Sync(self):
         print
-        print 'testInProcessSingleService'
+        print 'testInProcessSingleService_Sync'
         N = 1000
         listener = ('localhost', 16000)
         server = Server(listener, [StoreService()])
         server.serve()
         self.servers.append(server)
         store_client = Client(listener, StoreProtocol())
+        store_client.connect()
         self.clients.append(store_client)
         while not store_client.is_connected():
             coio.sleep(0.01)
         coio.stackless.schedule()
+
+        values = [('foo%d' % i, i, 'bar%d' % i) for i in xrange(N)]
+        received_values = []
+
         start = time.time()
-        for i in xrange(N):
-            key = 'foo%d' % i
-            value = 'bar%d' % i
-            timestamp = i
+        for key, timestamp, value in values:
             retreived_timestamp = store_client.set(key, timestamp, value)
             assert retreived_timestamp == timestamp
-            retreived_timestamp, retreived_value = store_client.get(key)
-            assert retreived_value == value
-            assert retreived_timestamp == timestamp
+            received_values.append(store_client.get(key))
         elapsed = time.time() - start
+
+        for (key, timestamp, value), (received_timestamp, received_value) in zip(values, received_values):
+            assert timestamp == received_timestamp
+            assert value == received_value
+
         print 'Elapsed: %.2fs' % elapsed
         print '%.2f invocations / s' % (2 * N / elapsed)
 
@@ -90,12 +97,13 @@ class ServiceTest(TestCase):
         server.serve()
         self.servers.append(server)
         store_client = Client(listener, StoreProtocol())
+        store_client.connect()
         self.clients.append(store_client)
         while not store_client.is_connected():
             coio.sleep(0.01)
 
         data = [('foo%d' % i, long(i), 'bar%d' % i) for i in xrange(N)]
-        data = [(key, timestamp, value) for key, timestamp, value in data]
+
         start = time.time()
 
         collector = store_client.set_collector(N)
@@ -108,6 +116,7 @@ class ServiceTest(TestCase):
         for key, timestamp, value in data:
             store_client.get_async(collector, key)
         replies = collector.collect()
+
         elapsed = time.time() - start
 
         assert len(replies) == len(data)
@@ -120,9 +129,9 @@ class ServiceTest(TestCase):
         print 'Elapsed: %.2fs' % elapsed
         print '%.2f invocations / s' % (2 * N / elapsed)
 
-    def testInProcessMultiService(self):
+    def testInProcessMultiService_Sync(self):
         print
-        print 'testInProcessMultiService'
+        print 'testInProcessMultiService_Sync'
         N = 1000
         listener1 = ('localhost', 16200)
         listener2 = ('localhost', 16201)
@@ -135,24 +144,33 @@ class ServiceTest(TestCase):
         listeners = [listener1, listener2]
         clients = [Client(listener, StoreProtocol()) for listener in listeners]
         for client in clients:
+            client.connect()
             while not client.is_connected():
                 coio.sleep(0.01)
         self.clients.extend(clients)
         store_client = MulticastClient(StoreProtocol())
         coio.stackless.schedule()
+
+        values = [('foo%d' % i, i, 'bar%d' % i) for i in xrange(N)]
+        received_values_list = []
+
         start = time.time()
-        for i in xrange(N):
-            key = 'foo%d' % i
-            value = 'bar%d' % i
-            timestamp = i
+
+        for key, timestamp, value in values:
             store_client.set(clients, key, timestamp, value)
-            values = store_client.get(clients, key)
-            for token, (received_timestamp, received_value) in values:
+            received_values_list.append(store_client.get(clients, key))
+
+        elapsed = time.time() - start
+
+        for received_values, (key, timestamp, value) in zip(received_values_list, values):
+            for token, (received_timestamp, received_value) in received_values:
+                if str(received_value) != str(value):
+                    print received_value, value
                 assert str(received_value) == str(value)
                 assert received_timestamp == timestamp
-        elapsed = time.time() - start
+
         print 'Elapsed: %.2fs' % elapsed
-        print '%.2f invocations / s' % (len(listeners) * N / elapsed)
+        print '%.2f invocations / s' % (len(listeners) * 2 * N / elapsed)
 
     def testInterProcessSingleService(self):
         print
@@ -161,33 +179,38 @@ class ServiceTest(TestCase):
         self.registerSubprocess(spawn_server(16300))
         listener = ('localhost', 16300)
         store_client = Client(listener, StoreProtocol())
+        store_client.connect()
         self.clients.append(store_client)
         while not store_client.is_connected():
             coio.sleep(0.01)
+        values = [('foo%d' % i, i, 'bar%d' % i) for i in xrange(N)]
+        received_values = []
         start = time.time()
-        for i in xrange(N):
-            key = 'foo%d' % i
-            value = 'bar%d' % i
-            timestamp = i
+        for key, timestamp, value in values:
             store_client.set(key, timestamp, value)
-            assert store_client.get(key) == (timestamp, value)
+            received_values.append(store_client.get(key))
         elapsed = time.time() - start
+        for (key, timestamp, value), (received_timestamp, received_value) in zip(values, received_values):
+            assert timestamp == received_timestamp
+            assert value == received_value
         print 'Elapsed: %.2fs' % elapsed
         print '%.2f invocations / s' % (2 * N / elapsed)
 
     def testInterProcessSingleService_Async(self):
         print
         print 'testInterProcessSingleService_Async'
-        N = 10000
+        N = 100000
         self.registerSubprocess(spawn_server(16400))
         listener = ('localhost', 16400)
         store_client = Client(listener, StoreProtocol())
+        store_client.connect()
         self.clients.append(store_client)
         while not store_client.is_connected():
             coio.sleep(0.01)
 
         data = [('foo%d' % i, i, 'bar%d' % i) for i in xrange(N)]
         data = [(key*100, timestamp, value*100) for key, timestamp, value in data]
+
         start = time.time()
 
         collector = store_client.set_collector(N)
@@ -213,10 +236,10 @@ class ServiceTest(TestCase):
         print 'Elapsed: %.2fs' % elapsed
         print '%.2f invocations / s' % (2 * N / elapsed)
 
-    def testInterProcessMultiService(self):
+    def testInterProcessMultiService_Sync(self):
         print
-        print 'testInterProcessMultiService'
-        N = 100
+        print 'testInterProcessMultiService_Sync'
+        N = 1000
         ports = range(16500, 16510)
         for port in ports:
             self.registerSubprocess(spawn_server(port))
@@ -224,24 +247,29 @@ class ServiceTest(TestCase):
         clients = [Client(listener, StoreProtocol()) for listener in listeners]
         self.clients.extend(clients)
         for client in clients:
+            client.connect()
             while not client.is_connected():
                 coio.sleep(0.1)
 
         store_client = MulticastClient(StoreProtocol())
 
+        values = [('foo%d' % i, i, 'bar%d' % i) for i in xrange(N)]
+
+        received_values_list = []
         start = time.time()
-        for i in xrange(N):
-            key = 'foo%d' % i
-            value = 'bar%d' % i
-            timestamp = i
+        for key, timestamp, value in values:
             store_client.set(clients, key, timestamp, value)
-            values = store_client.get(clients, key)
-            for token, (received_timestamp, received_value) in values:
+            received_values = store_client.get(clients, key)
+            received_values_list.append(received_values)
+        elapsed = time.time() - start
+
+        for received_values, (key, timestamp, value) in zip(received_values_list, values):
+            for token, (received_timestamp, received_value) in received_values:
                 if str(received_value) != str(value):
                     print received_value, value
                 assert str(received_value) == str(value)
                 assert received_timestamp == timestamp
-        elapsed = time.time() - start
+
         print 'Elapsed: %.2fs' % elapsed
         print '%.2f invocations / s' % (len(ports) * N / elapsed)
 
@@ -258,6 +286,7 @@ class ServiceTest(TestCase):
         clients = [Client(listener, StoreProtocol()) for listener in listeners]
         self.clients.extend(clients)
         for client in clients:
+            client.connect()
             while not client.is_connected():
                 coio.sleep(0.1)
 

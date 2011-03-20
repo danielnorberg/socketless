@@ -18,7 +18,7 @@ class TestCase(unittest.TestCase):
         self.processes = []
         self.subprocesses = []
         if not hasattr(self, 'logging_is_configured'):
-            debug.configure_logging(type(self).__name__, logging.ERROR)
+            debug.configure_logging(type(self).__name__, logging.INFO)
             self.logging_is_configured = True
 
     def tearDown(self):

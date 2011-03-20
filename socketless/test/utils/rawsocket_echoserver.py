@@ -4,6 +4,7 @@ from syncless.util import Queue
 from syncless import coio
 
 import paths
+paths.setup()
 
 from socketless.channel import Channel, DisconnectedException
 from socketless.channelserver import ChannelServer
@@ -12,7 +13,7 @@ import rawsocket_echoserver_core
 class EchoServer(ChannelServer):
     """docstring for Handler"""
     def __init__(self, listener):
-        super(ChannelServer, self).__init__(listener)
+        super(EchoServer, self).__init__(listener)
         print 'started'
 
     def handle_connection(self, c, address):

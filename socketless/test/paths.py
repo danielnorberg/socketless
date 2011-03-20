@@ -9,8 +9,8 @@ while os.path.basename(project_root) != 'socketless':
     project_root = os.path.dirname(project_root)
 project_container_dir = os.path.dirname(project_root)
 
-sys.path.append(project_container_dir)
+def setup():
+    sys.path.append(project_container_dir)
 
 def path(_path):
-    """docstring for path"""
     return os.path.join(project_root, _path)

@@ -16,10 +16,6 @@ def callersname():
 def pp():
     return pprint.PrettyPrinter(indent=4)
 
-def pformat():
-    """docstring for pformat"""
-    pass
-
 def configure_logging(appname, level=logging.INFO):
     formatter = logging.Formatter("%(asctime)-15s %(levelname)s (%(process)d) %(filename)s:%(lineno)d %(funcName)s(): %(message)s")
     handler = logging.StreamHandler()

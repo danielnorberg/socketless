@@ -9,6 +9,7 @@ from syncless.util import Queue
 from syncless import coio
 
 import paths
+paths.setup()
 
 from socketless.channelserver import ChannelServer
 from socketless.channel import DisconnectedException
